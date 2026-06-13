@@ -5,8 +5,16 @@ File-format compatible with the original `t`.
 
 ## Install
 
+Using Go Tools
+
 ```bash
 go install github.com/nathanhruby/tgo@latest
+```
+
+Using Homebrew
+```bash
+brew trust --formula nathanhruby/tap/tgo
+brew install nathanhruby/tap/tgo
 ```
 
 ## Usage
