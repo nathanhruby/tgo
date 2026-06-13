@@ -169,7 +169,9 @@ func TestCLI_Done(t *testing.T) {
 
 func TestCLI_CustomList(t *testing.T) {
 	dir := t.TempDir()
-	if err := buildApp().Run(context.Background(), []string{"tgo", "--task-dir", dir, "--list", "groceries", "add", "Milk"}); err != nil {
+
+	args := []string{"tgo", "--task-dir", dir, "--list", "groceries", "add", "Milk"}
+	if err := buildApp().Run(context.Background(), args); err != nil {
 		t.Fatalf("add to custom list failed: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "groceries")); os.IsNotExist(err) {
