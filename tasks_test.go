@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -318,8 +317,72 @@ func TestWrite_SortedByID(t *testing.T) {
 	}
 }
 
-// io is used by Task 7 tests; import kept here to avoid churn.
-var _ io.Reader
+func TestList_PrintsTasksToStdout(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "First task"}
+	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Second task"}
+
+	var buf strings.Builder
+	tl.List(&buf, "tasks", false, false, "")
+	output := buf.String()
+
+	if !strings.Contains(output, "First task") {
+		t.Errorf("expected 'First task' in output, got: %s", output)
+	}
+	if !strings.Contains(output, "Second task") {
+		t.Errorf("expected 'Second task' in output, got: %s", output)
+	}
+}
+
+func TestList_Grep(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "Buy groceries"}
+	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Walk the dog"}
+
+	var buf strings.Builder
+	tl.List(&buf, "tasks", false, false, "groceries")
+	output := buf.String()
+
+	if !strings.Contains(output, "Buy groceries") {
+		t.Errorf("expected 'Buy groceries' in output")
+	}
+	if strings.Contains(output, "Walk the dog") {
+		t.Errorf("'Walk the dog' should be filtered out by grep")
+	}
+}
+
+func TestList_Quiet(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "A task"}
+
+	var buf strings.Builder
+	tl.List(&buf, "tasks", false, true, "")
+	output := buf.String()
+
+	if strings.Contains(output, " - ") {
+		t.Errorf("quiet mode should not include ' - ' separator")
+	}
+	if !strings.Contains(output, "A task") {
+		t.Errorf("expected task text in quiet output")
+	}
+}
+
+func TestList_Done(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "Open task"}
+	tl.Done["bbb"] = Task{ID: "bbb", Text: "Done task"}
+
+	var buf strings.Builder
+	tl.List(&buf, "done", false, false, "")
+	output := buf.String()
+
+	if strings.Contains(output, "Open task") {
+		t.Errorf("open task should not appear in done list")
+	}
+	if !strings.Contains(output, "Done task") {
+		t.Errorf("expected done task in done list output")
+	}
+}
 
 func newTestTaskList() *TaskList {
 	return &TaskList{

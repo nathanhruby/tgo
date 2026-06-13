@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha1"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -268,6 +269,60 @@ func (tl *TaskList) Edit(prefix, newText string) error {
 	newID := hashText(newText)
 	tl.Tasks[newID] = Task{ID: newID, Text: newText}
 	return nil
+}
+
+// List prints the task list to stdout.
+// kind is "tasks" for open tasks or "done" for finished tasks.
+// verbose shows full IDs; quiet suppresses the ID prefix; grep filters by substring (case-insensitive).
+func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet bool, grep string) {
+	var tasks map[string]Task
+	if kind == "done" {
+		tasks = tl.Done
+	} else {
+		tasks = tl.Tasks
+	}
+
+	if len(tasks) == 0 {
+		return
+	}
+
+	ids := make([]string, 0, len(tasks))
+	for id := range tasks {
+		ids = append(ids, id)
+	}
+
+	var labelFn func(string) string
+	var maxLen int
+
+	if verbose {
+		labelFn = func(id string) string { return id }
+		for _, id := range ids {
+			if len(id) > maxLen {
+				maxLen = len(id)
+			}
+		}
+	} else {
+		ps := prefixes(ids)
+		labelFn = func(id string) string { return ps[id] }
+		for _, id := range ids {
+			if l := len(ps[id]); l > maxLen {
+				maxLen = l
+			}
+		}
+	}
+
+	sort.Strings(ids)
+	for _, id := range ids {
+		task := tasks[id]
+		if grep != "" && !strings.Contains(strings.ToLower(task.Text), strings.ToLower(grep)) {
+			continue
+		}
+		if quiet {
+			fmt.Fprintln(w, task.Text)
+		} else {
+			fmt.Fprintf(w, "%-*s - %s\n", maxLen, labelFn(id), task.Text)
+		}
+	}
 }
 
 // Write flushes both task files to disk.
