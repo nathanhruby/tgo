@@ -10,5 +10,8 @@ build: *.go  ## Builds the program
 test: ## Run tests
 	go test ./...
 
+lint: ## Run linter
+	golangci-lint run ./...
+
 devprep:  ## Install dev tooling
 	pre-commit install

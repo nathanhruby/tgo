@@ -221,7 +221,6 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 		}
 
 		data, err := os.ReadFile(path)
-
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
