@@ -2,6 +2,10 @@ package main
 
 import (
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -218,3 +222,101 @@ func TestPrefixes_DuplicateIDs_NoPanic(t *testing.T) {
 	// Result is undefined for duplicates, but must not panic
 	_ = got
 }
+
+func TestNewTaskList_Empty(t *testing.T) {
+	dir := t.TempDir()
+	tl, err := NewTaskList(dir, "tasks")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(tl.Tasks) != 0 || len(tl.Done) != 0 {
+		t.Errorf("expected empty task list")
+	}
+}
+
+func TestNewTaskList_InvalidTaskFile(t *testing.T) {
+	dir := t.TempDir()
+	// Create a directory where the task file should be
+	if err := os.Mkdir(filepath.Join(dir, "tasks"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewTaskList(dir, "tasks")
+	var target *ErrInvalidTaskFile
+	if !errors.As(err, &target) {
+		t.Errorf("expected ErrInvalidTaskFile, got %v", err)
+	}
+}
+
+func TestWriteAndRead_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	tl := &TaskList{
+		Tasks:   map[string]Task{"abc123": {ID: "abc123", Text: "Buy more beer"}},
+		Done:    map[string]Task{},
+		Name:    "tasks",
+		TaskDir: dir,
+	}
+	if err := tl.Write(false); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	tl2, err := NewTaskList(dir, "tasks")
+	if err != nil {
+		t.Fatalf("NewTaskList failed: %v", err)
+	}
+	task, ok := tl2.Tasks["abc123"]
+	if !ok || task.Text != "Buy more beer" {
+		t.Errorf("expected task after round trip, got %+v", tl2.Tasks)
+	}
+}
+
+func TestWrite_DeleteIfEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tasks")
+
+	// Create the file first
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tl := &TaskList{
+		Tasks:   map[string]Task{},
+		Done:    map[string]Task{},
+		Name:    "tasks",
+		TaskDir: dir,
+	}
+	if err := tl.Write(true); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected file to be deleted, but it still exists")
+	}
+}
+
+func TestWrite_SortedByID(t *testing.T) {
+	dir := t.TempDir()
+	tl := &TaskList{
+		Tasks: map[string]Task{
+			"bbb": {ID: "bbb", Text: "Second"},
+			"aaa": {ID: "aaa", Text: "First"},
+		},
+		Done:    map[string]Task{},
+		Name:    "tasks",
+		TaskDir: dir,
+	}
+	if err := tl.Write(false); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "tasks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	firstIdx := strings.Index(content, "First")
+	secondIdx := strings.Index(content, "Second")
+	if firstIdx >= secondIdx {
+		t.Errorf("expected 'First' (id:aaa) before 'Second' (id:bbb) in sorted output")
+	}
+}
+
+// io is used by Task 7 tests; import kept here to avoid churn.
+var _ io.Reader

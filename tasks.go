@@ -3,6 +3,9 @@ package main
 import (
 	"crypto/sha1"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -132,4 +135,115 @@ func prefixes(ids []string) map[string]string {
 		}
 	}
 	return result
+}
+
+// TaskList holds open and finished tasks for a named list.
+type TaskList struct {
+	Tasks   map[string]Task // id -> open task
+	Done    map[string]Task // id -> finished task
+	Name    string
+	TaskDir string
+}
+
+// expandPath expands a leading ~ to the user's home directory.
+func expandPath(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			return filepath.Join(home, path[1:])
+		}
+	}
+	return path
+}
+
+// NewTaskList reads both task files from disk and returns a populated TaskList.
+func NewTaskList(taskDir, name string) (*TaskList, error) {
+	tl := &TaskList{
+		Tasks:   make(map[string]Task),
+		Done:    make(map[string]Task),
+		Name:    name,
+		TaskDir: taskDir,
+	}
+
+	type fileSpec struct {
+		dest     map[string]Task
+		filename string
+	}
+	files := []fileSpec{
+		{tl.Tasks, name},
+		{tl.Done, "." + name + ".done"},
+	}
+
+	for _, f := range files {
+		path := filepath.Join(expandPath(taskDir), f.filename)
+		fi, err := os.Stat(path)
+		if err == nil && fi.IsDir() {
+			return nil, &ErrInvalidTaskFile{Path: path}
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, &ErrBadFile{Path: path, Problem: err.Error()}
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			task, ok, err := taskFromLine(line)
+			if err != nil {
+				return nil, &ErrBadFile{Path: path, Problem: err.Error()}
+			}
+			if ok {
+				f.dest[task.ID] = task
+			}
+		}
+	}
+	return tl, nil
+}
+
+// Write flushes both task files to disk.
+// If deleteIfEmpty is true, removes the file instead of writing an empty one.
+func (tl *TaskList) Write(deleteIfEmpty bool) error {
+	type fileSpec struct {
+		source   map[string]Task
+		filename string
+	}
+	files := []fileSpec{
+		{tl.Tasks, tl.Name},
+		{tl.Done, "." + tl.Name + ".done"},
+	}
+
+	for _, f := range files {
+		path := filepath.Join(expandPath(tl.TaskDir), f.filename)
+
+		fi, err := os.Stat(path)
+		if err == nil && fi.IsDir() {
+			return &ErrInvalidTaskFile{Path: path}
+		}
+
+		tasks := make([]Task, 0, len(f.source))
+		for _, t := range f.source {
+			tasks = append(tasks, t)
+		}
+		sort.Slice(tasks, func(i, j int) bool {
+			return tasks[i].ID < tasks[j].ID
+		})
+
+		if len(tasks) == 0 && deleteIfEmpty {
+			if _, err := os.Stat(path); err == nil {
+				if err := os.Remove(path); err != nil {
+					return &ErrBadFile{Path: path, Problem: err.Error()}
+				}
+			}
+			continue
+		}
+
+		var sb strings.Builder
+		for _, t := range tasks {
+			sb.WriteString(taskToLine(t))
+		}
+		if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+			return &ErrBadFile{Path: path, Problem: err.Error()}
+		}
+	}
+	return nil
 }
