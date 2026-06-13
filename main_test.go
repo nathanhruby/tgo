@@ -11,6 +11,7 @@ import (
 // It uses a temp dir as the task directory.
 func runApp(t *testing.T, dir string, args ...string) error {
 	t.Helper()
+
 	allArgs := append([]string{"tgo", "--task-dir", dir}, args...)
 
 	return buildApp().Run(context.Background(), allArgs)
@@ -64,6 +65,7 @@ func TestCLI_Finish(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var taskID string
 	for id := range tl.Tasks {
 		taskID = id
@@ -94,6 +96,7 @@ func TestCLI_Remove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var taskID string
 	for id := range tl.Tasks {
 		taskID = id
@@ -121,6 +124,7 @@ func TestCLI_Edit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var taskID string
 	for id := range tl.Tasks {
 		taskID = id
@@ -153,6 +157,7 @@ func TestCLI_Done(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	var taskID string
 	for id := range tl.Tasks {
 		taskID = id
