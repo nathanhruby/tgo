@@ -124,7 +124,7 @@ func editAction(_ context.Context, cmd *cli.Command) error {
 
 // buildApp constructs and returns the CLI app.
 // Extracted so tests can call it directly.
-func buildApp() *cli.Command {
+func buildApp() *cli.Command { //nolint:funlen // long func here is fine
 	return &cli.Command{
 		Name:           "tgo",
 		Usage:          "A simple task manager",
