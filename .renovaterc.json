@@ -1,5 +1,5 @@
 {
-  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
+  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests", ":enablePreCommit"],
   "labels": ["dependencies", "renovatebot"],
   "packageRules": [
     {
