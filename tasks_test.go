@@ -273,7 +273,7 @@ func TestWrite_DeleteIfEmpty(t *testing.T) {
 	path := filepath.Join(dir, "tasks")
 
 	// Create the file first
-	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(""), 0600); err != nil {
 		t.Fatal(err)
 	}
 

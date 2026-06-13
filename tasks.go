@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // used for task-ID generation, not cryptography
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +40,7 @@ func (e *ErrBadFile) Error() string {
 
 // hashText returns the SHA1 hex digest of the given UTF-8 text.
 func hashText(text string) string {
-	h := sha1.New()
+	h := sha1.New() //nolint:gosec // SHA1 used for stable content-addressing, not security
 	h.Write([]byte(text))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
@@ -369,7 +369,8 @@ func (tl *TaskList) Write(deleteIfEmpty bool) error {
 		for _, t := range tasks {
 			sb.WriteString(taskToLine(t))
 		}
-		if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+
+		if err := os.WriteFile(path, []byte(sb.String()), 0600); err != nil { //nolint:mnd
 			return &ErrBadFile{Path: path, Problem: err.Error()}
 		}
 	}
