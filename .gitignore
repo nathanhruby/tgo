@@ -34,6 +34,9 @@ tgo
 tasks
 .tasks.done
 
+# tgo builds
+dist/
+
 # Editor/IDE
 # .idea/
 # .vscode/
