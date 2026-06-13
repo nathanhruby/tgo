@@ -200,6 +200,76 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 	return tl, nil
 }
 
+// getTask resolves a prefix to a single open task.
+// Returns ErrAmbiguousPrefix or ErrUnknownPrefix as appropriate.
+func (tl *TaskList) getTask(prefix string) (Task, error) {
+	var matched []string
+	for id := range tl.Tasks {
+		if strings.HasPrefix(id, prefix) {
+			matched = append(matched, id)
+		}
+	}
+	switch len(matched) {
+	case 1:
+		return tl.Tasks[matched[0]], nil
+	case 0:
+		return Task{}, &ErrUnknownPrefix{Prefix: prefix}
+	default:
+		for _, id := range matched {
+			if id == prefix {
+				return tl.Tasks[id], nil
+			}
+		}
+		return Task{}, &ErrAmbiguousPrefix{Prefix: prefix}
+	}
+}
+
+// Add creates a new open task and returns its shortest prefix.
+func (tl *TaskList) Add(text string) (string, error) {
+	id := hashText(text)
+	tl.Tasks[id] = Task{ID: id, Text: text}
+	ids := make([]string, 0, len(tl.Tasks))
+	for taskID := range tl.Tasks {
+		ids = append(ids, taskID)
+	}
+	ps := prefixes(ids)
+	return ps[id], nil
+}
+
+// Finish moves the task matching prefix from Tasks to Done.
+func (tl *TaskList) Finish(prefix string) error {
+	task, err := tl.getTask(prefix)
+	if err != nil {
+		return err
+	}
+	delete(tl.Tasks, task.ID)
+	tl.Done[task.ID] = task
+	return nil
+}
+
+// Remove deletes the task matching prefix from Tasks.
+func (tl *TaskList) Remove(prefix string) error {
+	task, err := tl.getTask(prefix)
+	if err != nil {
+		return err
+	}
+	delete(tl.Tasks, task.ID)
+	return nil
+}
+
+// Edit replaces the text of the task matching prefix.
+// The task is re-inserted with a new ID derived from the new text.
+func (tl *TaskList) Edit(prefix, newText string) error {
+	task, err := tl.getTask(prefix)
+	if err != nil {
+		return err
+	}
+	delete(tl.Tasks, task.ID)
+	newID := hashText(newText)
+	tl.Tasks[newID] = Task{ID: newID, Text: newText}
+	return nil
+}
+
 // Write flushes both task files to disk.
 // If deleteIfEmpty is true, removes the file instead of writing an empty one.
 func (tl *TaskList) Write(deleteIfEmpty bool) error {

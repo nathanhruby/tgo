@@ -320,3 +320,114 @@ func TestWrite_SortedByID(t *testing.T) {
 
 // io is used by Task 7 tests; import kept here to avoid churn.
 var _ io.Reader
+
+func newTestTaskList() *TaskList {
+	return &TaskList{
+		Tasks:   make(map[string]Task),
+		Done:    make(map[string]Task),
+		Name:    "tasks",
+		TaskDir: "",
+	}
+}
+
+func TestAdd(t *testing.T) {
+	tl := newTestTaskList()
+	prefix, err := tl.Add("Buy more beer")
+	if err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if prefix == "" {
+		t.Error("expected non-empty prefix")
+	}
+	id := hashText("Buy more beer")
+	task, ok := tl.Tasks[id]
+	if !ok || task.Text != "Buy more beer" {
+		t.Errorf("task not in map after Add")
+	}
+}
+
+func TestAdd_PrefixIsShortestUnique(t *testing.T) {
+	tl := newTestTaskList()
+	p1, _ := tl.Add("aaaa task one")
+	p2, _ := tl.Add("bbbb task two")
+	if len(p1) == 0 || len(p2) == 0 {
+		t.Error("expected non-empty prefixes")
+	}
+	// prefixes must be different
+	if p1 == p2 {
+		t.Errorf("expected distinct prefixes, both got %q", p1)
+	}
+}
+
+func TestGetTask_AmbiguousPrefix(t *testing.T) {
+	tl := newTestTaskList()
+	id1 := hashText("task one")
+	id2 := hashText("task two")
+	tl.Tasks[id1] = Task{ID: id1, Text: "task one"}
+	tl.Tasks[id2] = Task{ID: id2, Text: "task two"}
+
+	// Use empty prefix which matches all
+	_, err := tl.getTask("")
+	var ae *ErrAmbiguousPrefix
+	if !errors.As(err, &ae) {
+		t.Errorf("expected ErrAmbiguousPrefix, got %v", err)
+	}
+}
+
+func TestGetTask_UnknownPrefix(t *testing.T) {
+	tl := newTestTaskList()
+	_, err := tl.getTask("zzz")
+	var ue *ErrUnknownPrefix
+	if !errors.As(err, &ue) {
+		t.Errorf("expected ErrUnknownPrefix, got %v", err)
+	}
+}
+
+func TestFinish(t *testing.T) {
+	tl := newTestTaskList()
+	id := hashText("Buy more beer")
+	tl.Tasks[id] = Task{ID: id, Text: "Buy more beer"}
+
+	ps := prefixes([]string{id})
+	if err := tl.Finish(ps[id]); err != nil {
+		t.Fatalf("Finish failed: %v", err)
+	}
+	if _, ok := tl.Tasks[id]; ok {
+		t.Error("task should be removed from Tasks after Finish")
+	}
+	if _, ok := tl.Done[id]; !ok {
+		t.Error("task should be in Done after Finish")
+	}
+}
+
+func TestRemove(t *testing.T) {
+	tl := newTestTaskList()
+	id := hashText("Buy more beer")
+	tl.Tasks[id] = Task{ID: id, Text: "Buy more beer"}
+
+	ps := prefixes([]string{id})
+	if err := tl.Remove(ps[id]); err != nil {
+		t.Fatalf("Remove failed: %v", err)
+	}
+	if _, ok := tl.Tasks[id]; ok {
+		t.Error("task should be gone after Remove")
+	}
+}
+
+func TestEdit(t *testing.T) {
+	tl := newTestTaskList()
+	oldID := hashText("Buy more beer")
+	tl.Tasks[oldID] = Task{ID: oldID, Text: "Buy more beer"}
+
+	ps := prefixes([]string{oldID})
+	if err := tl.Edit(ps[oldID], "Buy a lot more beer"); err != nil {
+		t.Fatalf("Edit failed: %v", err)
+	}
+	if _, ok := tl.Tasks[oldID]; ok {
+		t.Error("old task should be gone after Edit")
+	}
+	newID := hashText("Buy a lot more beer")
+	if task, ok := tl.Tasks[newID]; !ok || task.Text != "Buy a lot more beer" {
+		t.Errorf("new task not found after Edit: %+v", tl.Tasks)
+	}
+}
