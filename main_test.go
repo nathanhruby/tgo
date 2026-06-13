@@ -12,6 +12,7 @@ import (
 func runApp(t *testing.T, dir string, args ...string) error {
 	t.Helper()
 	allArgs := append([]string{"tgo", "--task-dir", dir}, args...)
+
 	return buildApp().Run(context.Background(), allArgs)
 }
 

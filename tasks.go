@@ -247,6 +247,7 @@ func (tl *TaskList) Add(text string) (string, error) {
 		ids = append(ids, taskID)
 	}
 	ps := prefixes(ids)
+
 	return ps[id], nil
 }
 
@@ -258,6 +259,7 @@ func (tl *TaskList) Finish(prefix string) error {
 	}
 	delete(tl.Tasks, task.ID)
 	tl.Done[task.ID] = task
+
 	return nil
 }
 
@@ -268,6 +270,7 @@ func (tl *TaskList) Remove(prefix string) error {
 		return err
 	}
 	delete(tl.Tasks, task.ID)
+
 	return nil
 }
 
@@ -281,6 +284,7 @@ func (tl *TaskList) Edit(prefix, newText string) error {
 	delete(tl.Tasks, task.ID)
 	newID := hashText(newText)
 	tl.Tasks[newID] = Task{ID: newID, Text: newText}
+
 	return nil
 }
 
