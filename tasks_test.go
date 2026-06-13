@@ -130,3 +130,91 @@ func TestTaskRoundTrip(t *testing.T) {
 		t.Errorf("want %v, got %v", original, got)
 	}
 }
+
+func TestPrefixes_Single(t *testing.T) {
+	id := "abcdef1234567890abcdef1234567890abcdef12"
+	got := prefixes([]string{id})
+	if got[id] != "a" {
+		t.Errorf("single id: want prefix 'a', got %q", got[id])
+	}
+}
+
+func TestPrefixes_DistinctFirstChar(t *testing.T) {
+	ids := []string{
+		"abcdef1234567890abcdef1234567890abcdef12",
+		"bbcdef1234567890abcdef1234567890abcdef12",
+	}
+	got := prefixes(ids)
+	if got[ids[0]] != "a" {
+		t.Errorf("first id: want 'a', got %q", got[ids[0]])
+	}
+	if got[ids[1]] != "b" {
+		t.Errorf("second id: want 'b', got %q", got[ids[1]])
+	}
+}
+
+func TestPrefixes_CommonPrefix(t *testing.T) {
+	ids := []string{
+		"abcdef1234567890abcdef1234567890abcdef12",
+		"abcxyz1234567890abcdef1234567890abcdef12",
+	}
+	got := prefixes(ids)
+	if got[ids[0]] != "abcd" {
+		t.Errorf("first id: want 'abcd', got %q", got[ids[0]])
+	}
+	if got[ids[1]] != "abcx" {
+		t.Errorf("second id: want 'abcx', got %q", got[ids[1]])
+	}
+}
+
+func TestPrefixes_Empty(t *testing.T) {
+	got := prefixes([]string{})
+	if len(got) != 0 {
+		t.Errorf("expected empty map, got %v", got)
+	}
+}
+
+func TestPrefixes_ThreeIDs(t *testing.T) {
+	ids := []string{
+		"aaa0001234567890abcdef1234567890abcdef12",
+		"aab0001234567890abcdef1234567890abcdef12",
+		"bbb0001234567890abcdef1234567890abcdef12",
+	}
+	got := prefixes(ids)
+	if got[ids[0]] != "aaa" {
+		t.Errorf("first id: want 'aaa', got %q", got[ids[0]])
+	}
+	if got[ids[1]] != "aab" {
+		t.Errorf("second id: want 'aab', got %q", got[ids[1]])
+	}
+	if got[ids[2]] != "b" {
+		t.Errorf("third id: want 'b', got %q", got[ids[2]])
+	}
+}
+
+func TestPrefixes_ThreeWayCascade(t *testing.T) {
+	// Third ID forces re-resolution of a prior 2-way collision
+	ids := []string{
+		"abc1231234567890abcdef1234567890abcdef12",
+		"abc1241234567890abcdef1234567890abcdef12",
+		"abc4561234567890abcdef1234567890abcdef12",
+	}
+	got := prefixes(ids)
+	if got[ids[0]] != "abc123" {
+		t.Errorf("first id: want 'abc123', got %q", got[ids[0]])
+	}
+	if got[ids[1]] != "abc124" {
+		t.Errorf("second id: want 'abc124', got %q", got[ids[1]])
+	}
+	if got[ids[2]] != "abc4" {
+		t.Errorf("third id: want 'abc4', got %q", got[ids[2]])
+	}
+}
+
+func TestPrefixes_DuplicateIDs_NoPanic(t *testing.T) {
+	// Duplicate IDs should not panic (though they shouldn't occur in production)
+	id := "abcdef1234567890abcdef1234567890abcdef12"
+	got := prefixes([]string{id, id})
+	// Result is undefined for duplicates, but must not panic
+	_ = got
+}

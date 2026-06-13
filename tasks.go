@@ -78,3 +78,58 @@ func taskFromLine(line string) (Task, bool, error) {
 func taskToLine(t Task) string {
 	return fmt.Sprintf("%s | id:%s\n", t.Text, t.ID)
 }
+
+// prefixes returns a mapping of id -> shortest unique prefix for each id in O(n·k) time,
+// where k is the maximum ID length (constant 40 for SHA1 hex strings).
+// Ported from sjl/t's _prefixes function. All IDs should be uniform length (SHA1 hex).
+func prefixes(ids []string) map[string]string {
+	ps := make(map[string]string) // prefix -> id ("" means collision marker)
+
+	for _, id := range ids {
+		idLen := len(id)
+		var prefix string
+		var i int
+		for i = 1; i <= idLen; i++ {
+			prefix = id[:i]
+			existing, found := ps[prefix]
+			if !found || (existing != "" && prefix != existing) {
+				break
+			}
+		}
+
+		if otherID, found := ps[prefix]; found {
+			// collision: walk forward until they diverge
+			broke := false
+			for j := i; j <= idLen; j++ {
+				if otherID[:j] == id[:j] {
+					ps[id[:j]] = ""
+				} else {
+					ps[otherID[:j]] = otherID
+					ps[id[:j]] = id
+					broke = true
+					break
+				}
+			}
+			if !broke {
+				// Identical IDs — skip (SHA1 of distinct texts cannot collide in practice)
+				if otherID != id {
+					if idLen+1 <= len(otherID) {
+						ps[otherID[:idLen+1]] = otherID
+					}
+					ps[id] = id
+				}
+			}
+		} else {
+			ps[prefix] = id
+		}
+	}
+
+	// Flip: id -> shortest prefix
+	result := make(map[string]string)
+	for prefix, id := range ps {
+		if id != "" {
+			result[id] = prefix
+		}
+	}
+	return result
+}
