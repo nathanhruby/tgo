@@ -185,6 +185,7 @@ func expandPath(path string) string {
 			return filepath.Join(home, path[1:])
 		}
 	}
+
 	return path
 }
 
@@ -217,6 +218,7 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 			if os.IsNotExist(err) {
 				continue
 			}
+
 			return nil, &ErrBadFile{Path: path, Problem: err.Error()}
 		}
 		for _, line := range strings.Split(string(data), "\n") {
@@ -229,6 +231,7 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 			}
 		}
 	}
+
 	return tl, nil
 }
 
