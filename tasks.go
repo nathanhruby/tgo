@@ -51,6 +51,8 @@ type Task struct {
 	Text string
 }
 
+const metaSplitParts = 2
+
 // taskFromLine parses one line from a task file.
 // Returns (task, true, nil) on success, (Task{}, false, nil) for blank/comment lines.
 // The error return is reserved for future format validation; callers should handle it.
@@ -65,7 +67,7 @@ func taskFromLine(line string) (Task, bool, error) {
 		task := Task{Text: text}
 		for _, piece := range strings.Split(meta, ",") {
 			piece = strings.TrimSpace(piece)
-			parts := strings.SplitN(piece, ":", 2)
+			parts := strings.SplitN(piece, ":", metaSplitParts)
 			if len(parts) == 2 && strings.TrimSpace(parts[0]) == "id" {
 				task.ID = strings.TrimSpace(parts[1])
 			}

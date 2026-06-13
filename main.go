@@ -9,6 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+const editMinArgs = 2
+
 func main() {
 	if err := buildApp().Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -137,7 +139,7 @@ func buildApp() *cli.Command {
 				ArgsUsage: "TASK NEW_TEXT",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					args := cmd.Args()
-					if args.Len() < 2 {
+					if args.Len() < editMinArgs {
 						return fmt.Errorf("usage: edit TASK NEW_TEXT")
 					}
 					prefix := args.Get(0)
