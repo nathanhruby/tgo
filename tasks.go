@@ -203,30 +203,6 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 	return tl, nil
 }
 
-// getTask resolves a prefix to a single open task.
-// Returns ErrAmbiguousPrefix or ErrUnknownPrefix as appropriate.
-func (tl *TaskList) getTask(prefix string) (Task, error) {
-	var matched []string
-	for id := range tl.Tasks {
-		if strings.HasPrefix(id, prefix) {
-			matched = append(matched, id)
-		}
-	}
-	switch len(matched) {
-	case 1:
-		return tl.Tasks[matched[0]], nil
-	case 0:
-		return Task{}, &ErrUnknownPrefix{Prefix: prefix}
-	default:
-		for _, id := range matched {
-			if id == prefix {
-				return tl.Tasks[id], nil
-			}
-		}
-		return Task{}, &ErrAmbiguousPrefix{Prefix: prefix}
-	}
-}
-
 // Add creates a new open task and returns its shortest prefix.
 func (tl *TaskList) Add(text string) (string, error) {
 	if strings.Contains(text, "\n") {
@@ -377,4 +353,31 @@ func (tl *TaskList) Write(deleteIfEmpty bool) error {
 		}
 	}
 	return nil
+}
+
+// getTask resolves a prefix to a single open task.
+// Returns ErrAmbiguousPrefix or ErrUnknownPrefix as appropriate.
+func (tl *TaskList) getTask(prefix string) (Task, error) {
+	var matched []string
+
+	for id := range tl.Tasks {
+		if strings.HasPrefix(id, prefix) {
+			matched = append(matched, id)
+		}
+	}
+
+	switch len(matched) {
+	case 1:
+		return tl.Tasks[matched[0]], nil
+	case 0:
+		return Task{}, &ErrUnknownPrefix{Prefix: prefix}
+	default:
+		for _, id := range matched {
+			if id == prefix {
+				return tl.Tasks[id], nil
+			}
+		}
+
+		return Task{}, &ErrAmbiguousPrefix{Prefix: prefix}
+	}
 }
