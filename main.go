@@ -219,10 +219,13 @@ func loadTaskList(cmd *cli.Command) (*TaskList, error) {
 
 // handleTaskError formats task-specific errors for CLI output.
 func handleTaskError(err error) error {
-	var ae *ErrAmbiguousPrefix
-	var ue *ErrUnknownPrefix
-	var ie *ErrInvalidTaskFile
-	var be *ErrBadFile
+	var (
+		ae *ErrAmbiguousPrefix
+		ue *ErrUnknownPrefix
+		ie *ErrInvalidTaskFile
+		be *ErrBadFile
+	)
+
 	switch {
 	case errors.As(err, &ae):
 		return fmt.Errorf("the ID %q matches more than one task", ae.Prefix)
