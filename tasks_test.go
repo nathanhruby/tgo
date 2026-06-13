@@ -10,6 +10,7 @@ import (
 
 func TestErrAmbiguousPrefix(t *testing.T) {
 	err := &ErrAmbiguousPrefix{Prefix: "abc"}
+
 	var target *ErrAmbiguousPrefix
 	if !errors.As(err, &target) {
 		t.Fatal("errors.As failed for ErrAmbiguousPrefix")
@@ -21,6 +22,7 @@ func TestErrAmbiguousPrefix(t *testing.T) {
 
 func TestErrUnknownPrefix(t *testing.T) {
 	err := &ErrUnknownPrefix{Prefix: "xyz"}
+
 	var target *ErrUnknownPrefix
 	if !errors.As(err, &target) {
 		t.Fatal("errors.As failed for ErrUnknownPrefix")
@@ -32,6 +34,7 @@ func TestErrUnknownPrefix(t *testing.T) {
 
 func TestErrInvalidTaskFile(t *testing.T) {
 	err := &ErrInvalidTaskFile{Path: "/some/path"}
+
 	var target *ErrInvalidTaskFile
 	if !errors.As(err, &target) {
 		t.Fatal("errors.As failed for ErrInvalidTaskFile")
@@ -43,6 +46,7 @@ func TestErrInvalidTaskFile(t *testing.T) {
 
 func TestErrBadFile(t *testing.T) {
 	err := &ErrBadFile{Path: "/some/path", Problem: "permission denied"}
+
 	var target *ErrBadFile
 	if !errors.As(err, &target) {
 		t.Fatal("errors.As failed for ErrBadFile")
@@ -240,6 +244,7 @@ func TestNewTaskList_InvalidTaskFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := NewTaskList(dir, "tasks")
+
 	var target *ErrInvalidTaskFile
 	if !errors.As(err, &target) {
 		t.Errorf("expected ErrInvalidTaskFile, got %v", err)
@@ -323,6 +328,7 @@ func TestList_PrintsTasksToStdout(t *testing.T) {
 	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Second task"}
 
 	var buf strings.Builder
+
 	tl.List(&buf, "tasks", false, false, "")
 	output := buf.String()
 
@@ -340,6 +346,7 @@ func TestList_Grep(t *testing.T) {
 	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Walk the dog"}
 
 	var buf strings.Builder
+
 	tl.List(&buf, "tasks", false, false, "groceries")
 	output := buf.String()
 
@@ -356,6 +363,7 @@ func TestList_Quiet(t *testing.T) {
 	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "A task"}
 
 	var buf strings.Builder
+
 	tl.List(&buf, "tasks", false, true, "")
 	output := buf.String()
 
@@ -373,6 +381,7 @@ func TestList_Done(t *testing.T) {
 	tl.Done["bbb"] = Task{ID: "bbb", Text: "Done task"}
 
 	var buf strings.Builder
+
 	tl.List(&buf, "done", false, false, "")
 	output := buf.String()
 
@@ -439,6 +448,7 @@ func TestGetTask_AmbiguousPrefix(t *testing.T) {
 
 	// Use empty prefix which matches all
 	_, err := tl.getTask("")
+
 	var ae *ErrAmbiguousPrefix
 	if !errors.As(err, &ae) {
 		t.Errorf("expected ErrAmbiguousPrefix, got %v", err)
@@ -448,6 +458,7 @@ func TestGetTask_AmbiguousPrefix(t *testing.T) {
 func TestGetTask_UnknownPrefix(t *testing.T) {
 	tl := newTestTaskList()
 	_, err := tl.getTask("zzz")
+
 	var ue *ErrUnknownPrefix
 	if !errors.As(err, &ue) {
 		t.Errorf("expected ErrUnknownPrefix, got %v", err)
