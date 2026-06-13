@@ -62,17 +62,21 @@ func taskFromLine(line string) (Task, bool, error) {
 	if line == "" || strings.HasPrefix(line, "#") {
 		return Task{}, false, nil
 	}
+
 	if idx := strings.LastIndex(line, "|"); idx >= 0 {
 		text := strings.TrimSpace(line[:idx])
 		meta := strings.TrimSpace(line[idx+1:])
 		task := Task{Text: text}
+
 		for _, piece := range strings.Split(meta, ",") {
 			piece = strings.TrimSpace(piece)
 			parts := strings.SplitN(piece, ":", metaSplitParts)
+
 			if len(parts) == 2 && strings.TrimSpace(parts[0]) == "id" {
 				task.ID = strings.TrimSpace(parts[1])
 			}
 		}
+
 		if task.ID == "" {
 			task.ID = hashText(task.Text)
 		}
@@ -202,6 +206,7 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 		dest     map[string]Task
 		filename string
 	}
+
 	files := []fileSpec{
 		{tl.Tasks, name},
 		{tl.Done, "." + name + ".done"},
@@ -210,10 +215,13 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 	for _, f := range files {
 		path := filepath.Join(expandPath(taskDir), f.filename)
 		fi, err := os.Stat(path)
+
 		if err == nil && fi.IsDir() {
 			return nil, &ErrInvalidTaskFile{Path: path}
 		}
+
 		data, err := os.ReadFile(path)
+
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -221,11 +229,13 @@ func NewTaskList(taskDir, name string) (*TaskList, error) {
 
 			return nil, &ErrBadFile{Path: path, Problem: err.Error()}
 		}
+
 		for _, line := range strings.Split(string(data), "\n") {
 			task, ok, err := taskFromLine(line)
 			if err != nil {
 				return nil, &ErrBadFile{Path: path, Problem: err.Error()}
 			}
+
 			if ok {
 				f.dest[task.ID] = task
 			}
@@ -240,12 +250,15 @@ func (tl *TaskList) Add(text string) (string, error) {
 	if strings.Contains(text, "\n") {
 		return "", fmt.Errorf("task text cannot contain newlines")
 	}
+
 	id := hashText(text)
 	tl.Tasks[id] = Task{ID: id, Text: text}
 	ids := make([]string, 0, len(tl.Tasks))
+
 	for taskID := range tl.Tasks {
 		ids = append(ids, taskID)
 	}
+
 	ps := prefixes(ids)
 
 	return ps[id], nil
@@ -257,6 +270,7 @@ func (tl *TaskList) Finish(prefix string) error {
 	if err != nil {
 		return err
 	}
+
 	delete(tl.Tasks, task.ID)
 	tl.Done[task.ID] = task
 
@@ -269,6 +283,7 @@ func (tl *TaskList) Remove(prefix string) error {
 	if err != nil {
 		return err
 	}
+
 	delete(tl.Tasks, task.ID)
 
 	return nil
@@ -281,7 +296,9 @@ func (tl *TaskList) Edit(prefix, newText string) error {
 	if err != nil {
 		return err
 	}
+
 	delete(tl.Tasks, task.ID)
+
 	newID := hashText(newText)
 	tl.Tasks[newID] = Task{ID: newID, Text: newText}
 
