@@ -42,6 +42,7 @@ func (e *ErrBadFile) Error() string {
 func hashText(text string) string {
 	h := sha1.New() //nolint:gosec // SHA1 used for stable content-addressing, not security
 	h.Write([]byte(text))
+
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -75,8 +76,10 @@ func taskFromLine(line string) (Task, bool, error) {
 		if task.ID == "" {
 			task.ID = hashText(task.Text)
 		}
+
 		return task, true, nil
 	}
+
 	return Task{ID: hashText(line), Text: line}, true, nil
 }
 
