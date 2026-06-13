@@ -1,0 +1,25 @@
+{
+  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
+  "labels": ["dependencies", "renovatebot"],
+  "packageRules": [
+    {
+      "automerge": true,
+      "matchUpdateTypes": ["patch", "pin", "digest", "minor"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "reviewers": ["nathanhruby"]
+    },
+    {
+      "automerge": true,
+      "groupName": "dependencies",
+      "matchManagers": ["pre-commit", "github-actions"],
+      "matchUpdateTypes": ["minor", "patch"]
+    }
+  ],
+  "prConcurrentLimit": 10,
+  "platformAutomerge": true,
+  "automergeSchedule": ["every weekend"],
+  "separateMinorPatch": true,
+  "timezone": "America/Los_Angeles"
+}

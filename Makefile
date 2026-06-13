@@ -9,3 +9,6 @@ build: *.go  ## Builds the program
 
 test: ## Run tests
 	go test ./...
+
+devprep:  ## Install dev tooling
+	pre-commit install

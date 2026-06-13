@@ -1,0 +1,25 @@
+name: Pre-Commit
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions: read-all
+
+jobs:
+
+  precommit:
+    name: Run pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: golangci-lint
