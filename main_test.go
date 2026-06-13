@@ -157,7 +157,9 @@ func TestCLI_Done(t *testing.T) {
 		taskID = id
 	}
 	ps := prefixes([]string{taskID})
-	runApp(t, dir, "finish", ps[taskID])
+	if err := runApp(t, dir, "finish", ps[taskID]); err != nil {
+		t.Fatal(err)
+	}
 
 	// done subcommand should not error
 	if err := runApp(t, dir, "done"); err != nil {

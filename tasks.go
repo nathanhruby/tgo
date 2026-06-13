@@ -227,6 +227,9 @@ func (tl *TaskList) getTask(prefix string) (Task, error) {
 
 // Add creates a new open task and returns its shortest prefix.
 func (tl *TaskList) Add(text string) (string, error) {
+	if strings.Contains(text, "\n") {
+		return "", fmt.Errorf("task text cannot contain newlines")
+	}
 	id := hashText(text)
 	tl.Tasks[id] = Task{ID: id, Text: text}
 	ids := make([]string, 0, len(tl.Tasks))

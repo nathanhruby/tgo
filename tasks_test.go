@@ -409,6 +409,14 @@ func TestAdd(t *testing.T) {
 	}
 }
 
+func TestAdd_RejectsNewline(t *testing.T) {
+	tl := newTestTaskList()
+	_, err := tl.Add("line1\nline2")
+	if err == nil {
+		t.Error("expected error for task text containing newline")
+	}
+}
+
 func TestAdd_PrefixIsShortestUnique(t *testing.T) {
 	tl := newTestTaskList()
 	p1, _ := tl.Add("aaaa task one")
