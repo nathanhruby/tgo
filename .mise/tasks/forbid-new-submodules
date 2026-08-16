@@ -1,0 +1,73 @@
+#!/bin/sh
+
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    printf 'forbid-new-submodules: not inside a Git repository\n' >&2
+    exit 1
+fi
+
+diff_file=$(mktemp "${TMPDIR:-/tmp}/forbid-new-submodules.XXXXXX") || {
+    printf '%s\n' 'forbid-new-submodules: cannot create temporary file' >&2
+    exit 1
+}
+index_file=$diff_file.index
+
+cleanup() {
+    rm -f "$diff_file" "$index_file"
+}
+
+trap 'cleanup; exit 1' 1 2 3 15
+
+if ! git diff --cached --raw --diff-filter=A -- "$@" > "$diff_file"; then
+    printf '%s\n' 'forbid-new-submodules: git diff --cached --raw failed' >&2
+    cleanup
+    trap - 0 1 2 3 15
+    exit 1
+fi
+
+if ! git ls-files --stage -- "$@" > "$index_file"; then
+    printf '%s\n' 'forbid-new-submodules: git ls-files --stage failed' >&2
+    cleanup
+    trap - 0 1 2 3 15
+    exit 1
+fi
+
+awk -F '\t' '
+    FILENAME == ARGV[1] {
+        split($1, metadata, " ")
+        mode = metadata[2]
+        path = $2
+        if (mode == "160000") {
+            report(path)
+        }
+        next
+    }
+    FILENAME == ARGV[2] {
+        split($1, metadata, " ")
+        mode = metadata[1]
+        path = $2
+        if (mode == "160000") {
+            report(path)
+        }
+        next
+    }
+    function report(path) {
+        if (!seen[path]++) {
+            printf "%s: new submodule introduced\n", path
+        }
+        found = 1
+    }
+    END {
+        exit found ? 1 : 0
+    }
+' "$diff_file" "$index_file"
+awk_status=$?
+
+cleanup
+trap - 0 1 2 3 15
+
+if [ "$awk_status" -ne 0 ]; then
+    printf '\nThis commit introduces new submodules.\n'
+    exit 1
+fi
+
+exit 0

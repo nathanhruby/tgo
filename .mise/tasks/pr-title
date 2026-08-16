@@ -1,0 +1,102 @@
+#!/bin/sh
+
+set -eu
+
+title_file=
+hk_output_file=
+
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT QUIT TERM
+    if [ -n "$title_file" ]; then
+        rm -f -- "$title_file"
+    fi
+    if [ -n "$hk_output_file" ]; then
+        rm -f -- "$hk_output_file"
+    fi
+    exit "$status"
+}
+
+invalid_title() {
+    printf '%s\n' 'invalid PR title; expected <type>(<optional-scope>): <lowercase subject> (types: fix, feat, docs, ci, chore)' >&2
+    exit 1
+}
+
+surface_hk_failure() {
+    cat "$hk_output_file" >&2
+    exit "$hk_status"
+}
+
+is_hk_validation_failure() {
+    first_line=$(sed -n '1p' "$hk_output_file")
+    case "$first_line" in
+        "Error: Invalid commit type:"*|"Error: Invalid scope,"*|"Error: Missing description")
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 131' QUIT
+trap 'exit 143' TERM
+
+if [ "$#" -eq 1 ]; then
+    title=$1
+elif [ "$#" -eq 0 ] && [ "${PR_TITLE+x}" = x ]; then
+    title=$PR_TITLE
+else
+    invalid_title
+fi
+
+lf=$(printf '\nx')
+lf=${lf%x}
+cr=$(printf '\r')
+case "$title" in
+    *"$lf"*|*"$cr"*)
+        invalid_title
+        ;;
+    "fixup! "*|"squash! "*|"amend! "*)
+        invalid_title
+        ;;
+esac
+
+umask 077
+if ! title_file=$(mktemp "${TMPDIR:-/tmp}/pr-title.XXXXXX"); then
+    printf '%s\n' 'pr-title: cannot create temporary title file' >&2
+    exit 1
+fi
+if ! hk_output_file=$(mktemp "${TMPDIR:-/tmp}/pr-title-output.XXXXXX"); then
+    printf '%s\n' 'pr-title: cannot create temporary hk output file' >&2
+    exit 1
+fi
+
+if ! printf '%s\n' "$title" > "$title_file"; then
+    printf '%s\n' 'pr-title: cannot write temporary title file' >&2
+    exit 1
+fi
+
+if hk util check-conventional-commit \
+    --allowed-types fix,feat,docs,ci,chore \
+    "$title_file" >"$hk_output_file" 2>&1; then
+    hk_status=0
+else
+    hk_status=$?
+    if [ "$hk_status" -eq 1 ] && is_hk_validation_failure; then
+        invalid_title
+    fi
+    surface_hk_failure
+fi
+
+if ! subject=$(sed -n '1s/^[^:]*: //p' "$title_file"); then
+    printf '%s\n' 'pr-title: cannot parse temporary title file' >&2
+    exit 1
+fi
+
+if ! printf '%s\n' "$subject" | grep -Eq '^[a-z].+$'; then
+    invalid_title
+fi

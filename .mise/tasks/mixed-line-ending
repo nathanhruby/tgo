@@ -1,0 +1,115 @@
+#!/bin/sh
+
+set -u
+
+fix=0
+if [ "$#" -gt 0 ] && [ "$1" = "--fix" ]; then
+    fix=1
+    shift
+fi
+if [ "$#" -gt 0 ] && [ "$1" = "--" ]; then
+    shift
+fi
+
+cr=$(printf '\r')
+status=0
+tmp_file=
+
+cleanup() {
+    exit_status=$?
+    trap - EXIT HUP INT QUIT TERM
+    if [ -n "$tmp_file" ]; then
+        rm -f "$tmp_file"
+    fi
+    exit "$exit_status"
+}
+
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 131' QUIT
+trap 'exit 143' TERM
+
+file_mode() {
+    stat_target=$1
+    case "$stat_target" in
+        -*) stat_target=./$stat_target;;
+    esac
+    if [ "$(uname -s)" = Darwin ]; then
+        stat -f '%Lp' "$stat_target"
+    else
+        stat -c '%a' "$stat_target"
+    fi
+}
+
+for filename
+ do
+    if [ ! -f "$filename" ] || [ ! -r "$filename" ]; then
+        printf '%s: cannot read file\n' "$filename" >&2
+        status=1
+        continue
+    fi
+
+    if ! LC_ALL=C grep -Iq . -- "$filename" 2>/dev/null; then
+        continue
+    fi
+
+    if ! LC_ALL=C grep -q "$cr" -- "$filename" 2>/dev/null; then
+        continue
+    fi
+
+    if [ "$fix" -eq 0 ]; then
+        printf '%s\n' "$filename"
+        status=1
+        continue
+    fi
+
+    file_dir=${filename%/*}
+    if [ "$file_dir" = "$filename" ]; then
+        file_dir=.
+    fi
+    tmp_file=$(mktemp "$file_dir/.mixed-line-ending.XXXXXX") || {
+        printf '%s: cannot create temporary file\n' "$filename" >&2
+        status=1
+        continue
+    }
+
+    if ! tr -d '\r' < "$filename" > "$tmp_file"; then
+        printf '%s: cannot write temporary file\n' "$filename" >&2
+        rm -f "$tmp_file"
+        tmp_file=
+        status=1
+        continue
+    fi
+
+    if ! mode=$(file_mode "$filename"); then
+        printf '%s: cannot read file mode\n' "$filename" >&2
+        rm -f "$tmp_file"
+        tmp_file=
+        status=1
+        continue
+    fi
+    if ! chmod "$mode" "$tmp_file"; then
+        printf '%s: cannot preserve file mode\n' "$filename" >&2
+        rm -f "$tmp_file"
+        tmp_file=
+        status=1
+        continue
+    fi
+
+    replace_target=$filename
+    case "$replace_target" in
+        -*) replace_target=./$replace_target;;
+    esac
+    if mv -f "$tmp_file" "$replace_target"; then
+        tmp_file=
+        printf 'Fixing %s\n' "$filename"
+    else
+        printf '%s: cannot replace file\n' "$filename" >&2
+        rm -f "$tmp_file"
+        tmp_file=
+        status=1
+    fi
+done
+
+exit "$status"
