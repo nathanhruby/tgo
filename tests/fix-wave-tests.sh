@@ -100,20 +100,19 @@ if grep -Fq 'invalid PR title' "$fixture_dir/hk-failure.out"; then
 fi
 
 mixed_file=$fixture_dir/mixed.txt
-printf 'one\r\ntwo\r\n' > "$mixed_file"
+printf 'one\ntwo\r\nthree\n' > "$mixed_file"
 chmod 640 "$mixed_file"
 mixed_mode_before=$(mode_of "$mixed_file")
-run_capture "$fixture_dir/mixed.out" "$repo_root/.mise/tasks/mixed-line-ending" --fix "$mixed_file"
+run_capture "$fixture_dir/mixed.out" mise exec -- hk util mixed-line-ending --fix "$mixed_file"
 if [ "$command_status" -ne 0 ]; then
-    fail 'mixed-line-ending did not fix a CRLF text fixture'
+    fail 'hk mixed-line-ending builtin did not fix a mixed-ending fixture'
 fi
 if LC_ALL=C grep -q "$(printf '\r')" "$mixed_file"; then
-    fail 'mixed-line-ending left CR bytes in the fixture'
+    fail 'hk mixed-line-ending builtin left CR bytes in the fixture'
 fi
 if [ "$(mode_of "$mixed_file")" != "$mixed_mode_before" ]; then
-    fail 'mixed-line-ending did not preserve the source mode'
+    fail 'hk mixed-line-ending builtin did not preserve the source mode'
 fi
-assert_no_temp_files "$fixture_dir" '.mixed-line-ending.*'
 
 trailing_file=$fixture_dir/notes.md
 printf 'hard break   \nplain \t\n' > "$trailing_file"
@@ -129,21 +128,6 @@ fi
 if [ "$(mode_of "$trailing_file")" != "$trailing_mode_before" ]; then
     fail 'hk trailing-whitespace builtin did not preserve the source mode'
 fi
-
-failure_bin=$fixture_dir/failure-bin
-mkdir "$failure_bin"
-cat > "$failure_bin/mv" <<'EOF'
-#!/bin/sh
-exit 1
-EOF
-chmod 700 "$failure_bin/mv"
-printf 'three\r\n' > "$mixed_file"
-run_capture "$fixture_dir/mixed-write-failure.out" env PATH="$failure_bin:$PATH" \
-    "$repo_root/.mise/tasks/mixed-line-ending" --fix "$mixed_file"
-if [ "$command_status" -eq 0 ]; then
-    fail 'mixed-line-ending reported success when atomic replacement failed'
-fi
-assert_no_temp_files "$fixture_dir" '.mixed-line-ending.*'
 
 
 if command -v mise >/dev/null 2>&1 && mise exec -- yamlfmt --version >/dev/null 2>&1; then

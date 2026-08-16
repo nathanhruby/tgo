@@ -9,12 +9,7 @@ local linters = new Mapping<String, Step> {
   ["detect-private-key"] = (Builtins.detect_private_key)
   ["end-of-file"] = (Builtins.newlines)
   ["trailing-whitespace"] = (Builtins.trailing_whitespace)
-  ["mixed-line-ending"] {
-    check = "mise run mixed-line-ending {{files}}"
-    fix = "mise run mixed-line-ending -- --fix {{files}}"
-    glob = "**/*"
-    check_first = true
-  }
+  ["mixed-line-ending"] = (Builtins.mixed_line_ending)
   ["yamlfmt"] = (Builtins.yamlfmt) {
     exclusive = true
   }
