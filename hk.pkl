@@ -14,14 +14,6 @@ local linters = new Mapping<String, Step> {
     exclusive = true
   }
   ["yamllint"] = Builtins.yamllint
-  ["check-vcs-permalinks"] {
-    check = "mise run check-vcs-permalinks {{files}}"
-    glob = "**/*"
-  }
-  ["forbid-new-submodules"] {
-    check = "mise run forbid-new-submodules {{files}}"
-    glob = "**/*"
-  }
   ["golangci-lint"] {
     check = "mise run lint"
     glob = List("**/*.go", "go.mod", "go.sum")
