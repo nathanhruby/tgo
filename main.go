@@ -20,6 +20,16 @@ func main() {
 
 func addAction(_ context.Context, cmd *cli.Command) error {
 	text := cmd.Args().First()
+	message := cmd.String("message")
+
+	if text != "" && message != "" {
+		return fmt.Errorf("task text must be provided either as TEXT or with -m/--message, not both")
+	}
+
+	if text == "" {
+		text = message
+	}
+
 	if text == "" {
 		return fmt.Errorf("task text is required")
 	}
@@ -152,8 +162,15 @@ func buildApp() *cli.Command { //nolint:funlen // long func here is fine
 			{
 				Name:      "add",
 				Usage:     "Add a new task",
-				ArgsUsage: "TEXT",
-				Action:    addAction,
+				ArgsUsage: "[TEXT]",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "message",
+						Aliases: []string{"m"},
+						Usage:   "use `MESSAGE` as the task text",
+					},
+				},
+				Action: addAction,
 			},
 			{
 				Name:   "list",

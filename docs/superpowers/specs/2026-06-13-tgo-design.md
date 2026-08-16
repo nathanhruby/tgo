@@ -116,7 +116,7 @@ Built with `urfave/cli` v3. Uses subcommands with global flags for configuration
 
 | Command | Args | Flags | Description |
 |---------|------|-------|-------------|
-| `add TEXT` | task text (required) | | Add a new task; prints its short prefix |
+| `add [TEXT]` | task text, or `-m/--message MESSAGE` | `-m/--message` | Add a new task; exactly one text source is required and it prints the short prefix |
 | `list` | | `-g/--grep`, `-v/--verbose`, `-q/--quiet` | List open tasks (default command) |
 | `done` | | `-g/--grep`, `-v/--verbose`, `-q/--quiet` | List finished tasks |
 | `finish TASK` | prefix (required) | | Mark task as finished |
@@ -128,7 +128,7 @@ Built with `urfave/cli` v3. Uses subcommands with global flags for configuration
 ```sh
 # Add tasks
 tgo add "Clean the apartment"
-tgo add "Buy more beer"
+tgo add -m "Buy more beer"
 
 # List open tasks
 tgo

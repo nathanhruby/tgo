@@ -33,6 +33,42 @@ func TestCLI_Add(t *testing.T) {
 	}
 }
 
+func TestCLI_Add_MessageFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := runApp(t, dir, "add", "-m", "Buy more beer"); err != nil {
+		t.Fatalf("add with message failed: %v", err)
+	}
+
+	tl, err := NewTaskList(dir, "tasks")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(tl.Tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tl.Tasks))
+	}
+
+	for _, task := range tl.Tasks {
+		if task.Text != "Buy more beer" {
+			t.Errorf("expected task text %q, got %q", "Buy more beer", task.Text)
+		}
+	}
+}
+
+func TestCLI_Add_RequiresText(t *testing.T) {
+	dir := t.TempDir()
+	if err := runApp(t, dir, "add"); err == nil {
+		t.Fatal("expected add without text to fail")
+	}
+}
+
+func TestCLI_Add_RejectsPositionalTextWithMessageFlag(t *testing.T) {
+	dir := t.TempDir()
+	if err := runApp(t, dir, "add", "Buy more beer", "-m", "Another task"); err == nil {
+		t.Fatal("expected add with positional text and -m to fail")
+	}
+}
+
 func TestCLI_List_Empty(t *testing.T) {
 	dir := t.TempDir()
 	if err := runApp(t, dir, "list"); err != nil {

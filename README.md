@@ -22,7 +22,7 @@ brew install nathanhruby/tap/tgo
 ```bash
 # Add a task
 tgo add "Clean the apartment"
-tgo add "Buy more beer"
+tgo add -m "Buy more beer"
 
 # List open tasks (also: just run `tgo`)
 tgo list
