@@ -19,14 +19,21 @@ func main() {
 }
 
 func addAction(_ context.Context, cmd *cli.Command) error {
-	text := cmd.Args().First()
-	message := cmd.String("message")
+	args := cmd.Args()
+	if args.Len() > 1 {
+		return fmt.Errorf("only one task text argument is allowed")
+	}
 
-	if text != "" && message != "" {
+	text := args.First()
+	message := cmd.String("message")
+	textProvided := args.Len() == 1
+	messageProvided := cmd.IsSet("message")
+
+	if textProvided && messageProvided {
 		return fmt.Errorf("task text must be provided either as TEXT or with -m/--message, not both")
 	}
 
-	if text == "" {
+	if !textProvided {
 		text = message
 	}
 
