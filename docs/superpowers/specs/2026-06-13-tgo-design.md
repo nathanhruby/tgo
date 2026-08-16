@@ -1,7 +1,7 @@
 # tgo Design Spec
 
-**Date:** 2026-06-13  
-**Project:** `tgo` — a Go port of [sjl/t](https://github.com/sjl/t)  
+**Date:** 2026-06-13
+**Project:** `tgo` — a Go port of [sjl/t](https://github.com/sjl/t)
 **Goal:** A minimal, idiomatic Go task manager that remains file-format compatible with the original `t`.
 
 ---

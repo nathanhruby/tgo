@@ -8,13 +8,7 @@ local linters = new Mapping<String, Step> {
   ["check-executables-have-shebangs"] = (Builtins.check_executables_have_shebangs)
   ["detect-private-key"] = (Builtins.detect_private_key)
   ["end-of-file"] = (Builtins.newlines)
-  ["trailing-whitespace"] {
-    check = "mise run trailing-whitespace {{files}}"
-    fix = "mise run trailing-whitespace -- --fix {{files}}"
-    glob = "**/*"
-    exclude = List("CHANGELOG.md")
-    check_first = true
-  }
+  ["trailing-whitespace"] = (Builtins.trailing_whitespace)
   ["mixed-line-ending"] {
     check = "mise run mixed-line-ending {{files}}"
     fix = "mise run mixed-line-ending -- --fix {{files}}"

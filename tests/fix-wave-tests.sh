@@ -119,17 +119,16 @@ trailing_file=$fixture_dir/notes.md
 printf 'hard break   \nplain \t\n' > "$trailing_file"
 chmod 640 "$trailing_file"
 trailing_mode_before=$(mode_of "$trailing_file")
-run_capture "$fixture_dir/trailing.out" "$repo_root/.mise/tasks/trailing-whitespace" --fix "$trailing_file"
+run_capture "$fixture_dir/trailing.out" mise exec -- hk util trailing-whitespace --fix "$trailing_file"
 if [ "$command_status" -ne 0 ]; then
-    fail 'trailing-whitespace did not fix a Markdown fixture'
+    fail 'hk trailing-whitespace builtin did not fix a Markdown fixture'
 fi
-if ! printf 'hard break  \nplain\n' | cmp -s - "$trailing_file"; then
-    fail 'trailing-whitespace did not preserve Markdown hard breaks while trimming other whitespace'
+if ! printf 'hard break\nplain\n' | cmp -s - "$trailing_file"; then
+    fail 'hk trailing-whitespace builtin did not trim all trailing whitespace'
 fi
 if [ "$(mode_of "$trailing_file")" != "$trailing_mode_before" ]; then
-    fail 'trailing-whitespace did not preserve the source mode'
+    fail 'hk trailing-whitespace builtin did not preserve the source mode'
 fi
-assert_no_temp_files "$fixture_dir" '.trailing-whitespace.*'
 
 failure_bin=$fixture_dir/failure-bin
 mkdir "$failure_bin"
@@ -146,13 +145,6 @@ if [ "$command_status" -eq 0 ]; then
 fi
 assert_no_temp_files "$fixture_dir" '.mixed-line-ending.*'
 
-printf 'bad \n' > "$fixture_dir/trailing.txt"
-run_capture "$fixture_dir/trailing-write-failure.out" env PATH="$failure_bin:$PATH" \
-    "$repo_root/.mise/tasks/trailing-whitespace" --fix "$fixture_dir/trailing.txt"
-if [ "$command_status" -eq 0 ]; then
-    fail 'trailing-whitespace reported success when atomic replacement failed'
-fi
-assert_no_temp_files "$fixture_dir" '.trailing-whitespace.*'
 
 if command -v mise >/dev/null 2>&1 && mise exec -- yamlfmt --version >/dev/null 2>&1; then
     yaml_file=$fixture_dir/crlf.yaml
