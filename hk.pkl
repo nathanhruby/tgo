@@ -2,32 +2,12 @@ amends "package://github.com/jdx/hk/releases/download/v1.53.0/hk@1.53.0#/Config.
 import "package://github.com/jdx/hk/releases/download/v1.53.0/hk@1.53.0#/Builtins.pkl"
 
 local linters = new Mapping<String, Step> {
-  ["check-added-large-files"] {
-    check = "hk util check-added-large-files {{files}}"
-    glob = "**/*"
-  }
-  ["check-merge-conflict"] {
-    check = "hk util check-merge-conflict {{files}}"
-    glob = "**/*"
-  }
-  ["check-case-conflict"] {
-    check = "hk util check-case-conflict {{files}}"
-    glob = "**/*"
-  }
-  ["check-executables-have-shebangs"] {
-    check = "hk util check-executables-have-shebangs {{files}}"
-    glob = "**/*"
-  }
-  ["detect-private-key"] {
-    check = "hk util detect-private-key {{files}}"
-    glob = "**/*"
-  }
-  ["end-of-file"] {
-    check = "hk util end-of-file-fixer {{files}}"
-    fix = "hk util end-of-file-fixer --fix {{files}}"
-    glob = "**/*"
-    check_first = true
-  }
+  ["check-added-large-files"] = (Builtins.check_added_large_files)
+  ["check-merge-conflict"] = (Builtins.check_merge_conflict)
+  ["check-case-conflict"] = (Builtins.check_case_conflict)
+  ["check-executables-have-shebangs"] = (Builtins.check_executables_have_shebangs)
+  ["detect-private-key"] = (Builtins.detect_private_key)
+  ["end-of-file"] = (Builtins.newlines)
   ["trailing-whitespace"] {
     check = "mise run trailing-whitespace {{files}}"
     fix = "mise run trailing-whitespace -- --fix {{files}}"
