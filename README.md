@@ -31,7 +31,6 @@ mise run hooks:install
 mise run pr-title -- "feat: add export"
 ```
 
-The repository intentionally does not add a commit-message policy because `.commitlintrc.yaml` is absent.
 
 ## Usage
 
