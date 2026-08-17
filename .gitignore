@@ -40,3 +40,7 @@ dist/
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# mise task scripts are source files, not generated task artifacts
+!.mise/tasks/
+!.mise/tasks/**

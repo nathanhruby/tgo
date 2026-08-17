@@ -17,6 +17,21 @@ brew trust --formula nathanhruby/tap/tgo
 brew install nathanhruby/tap/tgo
 ```
 
+## Development
+
+mise provides tool versions and tasks, while hk replaces pre-commit for local hooks.
+
+```text
+mise install
+mise run build
+mise run test
+mise run lint
+mise run check
+mise run hooks:install
+mise run pr-title -- "feat: add export"
+```
+
+
 ## Usage
 
 ```bash

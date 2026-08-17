@@ -1,5 +1,5 @@
 {
-  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests", ":enablePreCommit"],
+  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
   "labels": ["dependencies", "renovatebot"],
   "packageRules": [
     {
@@ -13,7 +13,7 @@
     {
       "automerge": true,
       "groupName": "dependencies",
-      "matchManagers": ["pre-commit", "github-actions"],
+      "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"]
     }
   ],
