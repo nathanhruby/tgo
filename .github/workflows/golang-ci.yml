@@ -1,5 +1,5 @@
 ---
-name: golangci
+name: golang-ci
 "on":
   pull_request:
     branches:
