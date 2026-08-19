@@ -1,5 +1,5 @@
 ---
-name: golang-ci
+name: go tests
 "on":
   pull_request:
     branches:
@@ -7,7 +7,7 @@ name: golang-ci
 permissions: read-all
 jobs:
   golangci:
-    name: Run golang-ci
+    name: Run go tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,4 +18,4 @@ jobs:
           version: 2026.8.8
           install: true
       - name: Run lint
-        run: mise run lint
+        run: mise run test
