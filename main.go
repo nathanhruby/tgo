@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/urfave/cli/v3"
 )
 
@@ -58,6 +59,53 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 	fmt.Println(prefix)
 
 	return nil
+}
+
+type watchCommand interface {
+	watchTaskDir() string
+	watchListName() string
+	watchGrep() string
+	watchVerbose() bool
+	watchQuiet() bool
+}
+
+type watchConfigCommand struct {
+	taskDir  string
+	listName string
+	grep     string
+	verbose  bool
+	quiet    bool
+}
+
+func (c *watchConfigCommand) watchTaskDir() string  { return c.taskDir }
+func (c *watchConfigCommand) watchListName() string { return c.listName }
+func (c *watchConfigCommand) watchGrep() string     { return c.grep }
+func (c *watchConfigCommand) watchVerbose() bool    { return c.verbose }
+func (c *watchConfigCommand) watchQuiet() bool      { return c.quiet }
+
+type cliWatchCommand struct{ command *cli.Command }
+
+func (c cliWatchCommand) watchTaskDir() string  { return c.command.Root().String("task-dir") }
+func (c cliWatchCommand) watchListName() string { return c.command.Root().String("list") }
+func (c cliWatchCommand) watchGrep() string     { return c.command.String("grep") }
+func (c cliWatchCommand) watchVerbose() bool    { return c.command.Bool("verbose") }
+func (c cliWatchCommand) watchQuiet() bool      { return c.command.Bool("quiet") }
+
+func watchAction(_ context.Context, cmd *cli.Command) error {
+	config := watchConfigFromCommand(cliWatchCommand{command: cmd})
+	_, err := tea.NewProgram(newWatchModel(config), tea.WithAltScreen()).Run()
+
+	return err
+}
+
+func watchConfigFromCommand(cmd watchCommand) watchConfig {
+	return watchConfig{
+		taskDir:  cmd.watchTaskDir(),
+		listName: cmd.watchListName(),
+		grep:     cmd.watchGrep(),
+		verbose:  cmd.watchVerbose(),
+		quiet:    cmd.watchQuiet(),
+	}
 }
 
 func listAction(_ context.Context, cmd *cli.Command) error {
@@ -190,6 +238,12 @@ func buildApp() *cli.Command { //nolint:funlen // long func here is fine
 				Usage:  "List finished tasks",
 				Flags:  listFlags(),
 				Action: doneAction,
+			},
+			{
+				Name:   "watch",
+				Usage:  "Watch open tasks",
+				Flags:  listFlags(),
+				Action: watchAction,
 			},
 			{
 				Name:      "finish",

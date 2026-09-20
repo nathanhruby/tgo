@@ -42,6 +42,10 @@ tgo add -m "Buy more beer"
 # List open tasks (also: just run `tgo`)
 tgo list
 
+# Continuously watch open tasks (press q or Ctrl+C to exit)
+tgo watch
+tgo watch --grep apartment
+
 # Finish a task
 tgo finish 9
 
