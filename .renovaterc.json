@@ -1,5 +1,5 @@
 {
-  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
+  "extends": ["config:best-practices"],
   "labels": ["dependencies", "renovatebot"],
   "packageRules": [
     {
@@ -9,12 +9,6 @@
     {
       "matchUpdateTypes": ["major"],
       "reviewers": ["nathanhruby"]
-    },
-    {
-      "automerge": true,
-      "groupName": "dependencies",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch"]
     }
   ],
   "prConcurrentLimit": 10,
