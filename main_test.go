@@ -46,21 +46,6 @@ func TestCLI_WatchCommand(t *testing.T) {
 	t.Fatal("watch command is missing")
 }
 
-func TestWatchConfigFromCommandFlags(t *testing.T) {
-	config := watchConfigFromCommand(&watchConfigCommand{
-		taskDir:  "/tmp/tasks",
-		listName: "groceries",
-		grep:     "milk",
-		verbose:  true,
-		quiet:    true,
-	})
-
-	want := watchConfig{taskDir: "/tmp/tasks", listName: "groceries", grep: "milk", verbose: true, quiet: true}
-	if config != want {
-		t.Fatalf("watch config = %+v, want %+v", config, want)
-	}
-}
-
 func TestCLI_Add(t *testing.T) {
 	dir := t.TempDir()
 	if err := runApp(t, dir, "add", "Buy more beer"); err != nil {

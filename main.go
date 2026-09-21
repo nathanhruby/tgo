@@ -61,51 +61,17 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-type watchCommand interface {
-	watchTaskDir() string
-	watchListName() string
-	watchGrep() string
-	watchVerbose() bool
-	watchQuiet() bool
-}
-
-type watchConfigCommand struct {
-	taskDir  string
-	listName string
-	grep     string
-	verbose  bool
-	quiet    bool
-}
-
-func (c *watchConfigCommand) watchTaskDir() string  { return c.taskDir }
-func (c *watchConfigCommand) watchListName() string { return c.listName }
-func (c *watchConfigCommand) watchGrep() string     { return c.grep }
-func (c *watchConfigCommand) watchVerbose() bool    { return c.verbose }
-func (c *watchConfigCommand) watchQuiet() bool      { return c.quiet }
-
-type cliWatchCommand struct{ command *cli.Command }
-
-func (c cliWatchCommand) watchTaskDir() string  { return c.command.Root().String("task-dir") }
-func (c cliWatchCommand) watchListName() string { return c.command.Root().String("list") }
-func (c cliWatchCommand) watchGrep() string     { return c.command.String("grep") }
-func (c cliWatchCommand) watchVerbose() bool    { return c.command.Bool("verbose") }
-func (c cliWatchCommand) watchQuiet() bool      { return c.command.Bool("quiet") }
-
 func watchAction(_ context.Context, cmd *cli.Command) error {
-	config := watchConfigFromCommand(cliWatchCommand{command: cmd})
-	_, err := tea.NewProgram(newWatchModel(config), tea.WithAltScreen()).Run()
+	root := cmd.Root()
+	_, err := tea.NewProgram(newWatchModel(watchConfig{
+		taskDir:  root.String("task-dir"),
+		listName: root.String("list"),
+		grep:     cmd.String("grep"),
+		verbose:  cmd.Bool("verbose"),
+		quiet:    cmd.Bool("quiet"),
+	}), tea.WithAltScreen()).Run()
 
 	return err
-}
-
-func watchConfigFromCommand(cmd watchCommand) watchConfig {
-	return watchConfig{
-		taskDir:  cmd.watchTaskDir(),
-		listName: cmd.watchListName(),
-		grep:     cmd.watchGrep(),
-		verbose:  cmd.watchVerbose(),
-		quiet:    cmd.watchQuiet(),
-	}
 }
 
 func listAction(_ context.Context, cmd *cli.Command) error {
