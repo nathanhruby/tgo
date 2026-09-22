@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/urfave/cli/v3"
 )
 
@@ -58,6 +59,19 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 	fmt.Println(prefix)
 
 	return nil
+}
+
+func watchAction(_ context.Context, cmd *cli.Command) error {
+	root := cmd.Root()
+	_, err := tea.NewProgram(newWatchModel(watchConfig{
+		taskDir:  root.String("task-dir"),
+		listName: root.String("list"),
+		grep:     cmd.String("grep"),
+		verbose:  cmd.Bool("verbose"),
+		quiet:    cmd.Bool("quiet"),
+	}), tea.WithAltScreen()).Run()
+
+	return err
 }
 
 func listAction(_ context.Context, cmd *cli.Command) error {
@@ -190,6 +204,12 @@ func buildApp() *cli.Command { //nolint:funlen // long func here is fine
 				Usage:  "List finished tasks",
 				Flags:  listFlags(),
 				Action: doneAction,
+			},
+			{
+				Name:   "watch",
+				Usage:  "Watch open tasks",
+				Flags:  listFlags(),
+				Action: watchAction,
 			},
 			{
 				Name:      "finish",

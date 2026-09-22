@@ -17,6 +17,35 @@ func runApp(t *testing.T, dir string, args ...string) error {
 	return buildApp().Run(context.Background(), allArgs)
 }
 
+func TestCLI_WatchCommand(t *testing.T) {
+	app := buildApp()
+	for _, command := range app.Commands {
+		if command.Name != "watch" {
+			continue
+		}
+
+		for _, name := range []string{"grep", "verbose", "quiet"} {
+			found := false
+
+			for _, flag := range command.Flags {
+				if flag.Names()[0] == name {
+					found = true
+
+					break
+				}
+			}
+
+			if !found {
+				t.Fatalf("watch command is missing %q flag", name)
+			}
+		}
+
+		return
+	}
+
+	t.Fatal("watch command is missing")
+}
+
 func TestCLI_Add(t *testing.T) {
 	dir := t.TempDir()
 	if err := runApp(t, dir, "add", "Buy more beer"); err != nil {
