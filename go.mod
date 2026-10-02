@@ -3,7 +3,7 @@ module github.com/nathanhruby/tgo
 go 1.26
 
 require (
-	github.com/charmbracelet/bubbletea v1.3.10
+	github.com/charmbracelet/bubbletea/v2 v2.0.10
 	github.com/urfave/cli/v3 v3.13.0
 )
 
