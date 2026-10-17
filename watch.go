@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const watchRefreshInterval = 2 * time.Second
@@ -44,8 +44,8 @@ func (m watchModel) Init() tea.Cmd {
 
 func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC || (msg.Type == tea.KeyRunes && msg.String() == "q") {
+	case tea.KeyPressMsg:
+		if msg.Keystroke() == "ctrl+c" || msg.Keystroke() == "q" {
 			return m, tea.Quit
 		}
 	case watchLoadResult:
@@ -66,12 +66,16 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m watchModel) View() string {
+func (m watchModel) View() tea.View {
+	output := m.output
 	if m.err != nil {
-		return fmt.Sprintf("%serror: %v\n", m.output, m.err)
+		output = fmt.Sprintf("%serror: %v\n", output, m.err)
 	}
 
-	return m.output
+	view := tea.NewView(output)
+	view.AltScreen = true
+
+	return view
 }
 
 func (m watchModel) load() tea.Cmd {

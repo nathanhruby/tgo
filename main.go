@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/urfave/cli/v3"
 )
 
@@ -69,7 +69,7 @@ func watchAction(_ context.Context, cmd *cli.Command) error {
 		grep:     cmd.String("grep"),
 		verbose:  cmd.Bool("verbose"),
 		quiet:    cmd.Bool("quiet"),
-	}), tea.WithAltScreen()).Run()
+	})).Run()
 
 	return err
 }

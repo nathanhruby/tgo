@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func writeWatchTasks(t *testing.T, tasks map[string]Task) string {
@@ -28,7 +28,7 @@ func TestWatchModelLoadsTasksImmediately(t *testing.T) {
 	msg := model.Init()()
 	updated, _ := model.Update(msg)
 
-	view := updated.(watchModel).View()
+	view := updated.(watchModel).View().Content
 
 	if !strings.Contains(view, "a - A watched task") {
 		t.Fatalf("watch view does not contain the task list: %q", view)
@@ -42,7 +42,7 @@ func TestWatchModelForwardsListOptions(t *testing.T) {
 	})
 	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks", grep: "watched", verbose: true, quiet: false})
 	updated, _ := model.Update(model.Init()())
-	view := updated.(watchModel).View()
+	view := updated.(watchModel).View().Content
 
 	if !strings.Contains(view, "A watched task") || strings.Contains(view, "A hidden task") {
 		t.Fatalf("list options were not forwarded: %q", view)
@@ -77,7 +77,7 @@ func TestWatchModelTimerReloadsTaskFile(t *testing.T) {
 	}
 
 	updated, _ := model.Update(cmd())
-	if !strings.Contains(updated.(watchModel).View(), "A watched task") {
+	if !strings.Contains(updated.(watchModel).View().Content, "A watched task") {
 		t.Fatal("reload command did not load task file")
 	}
 }
@@ -89,7 +89,7 @@ func TestWatchModelRetainsOutputOnRefreshError(t *testing.T) {
 	model = updated.(watchModel)
 
 	model.err = errors.New("refresh failed")
-	view := model.View()
+	view := model.View().Content
 
 	if !strings.Contains(view, "A watched task") || !strings.Contains(view, "error: refresh failed") {
 		t.Fatalf("error view = %q", view)
@@ -115,8 +115,8 @@ func TestWatchModelRetriesAfterRefreshErrorAndRetainsOutput(t *testing.T) {
 		t.Fatalf("output = %q, want retained successful output", model.output)
 	}
 
-	if !strings.Contains(model.View(), "error: refresh failed") {
-		t.Fatalf("view = %q, want visible refresh error", model.View())
+	if !strings.Contains(model.View().Content, "error: refresh failed") {
+		t.Fatalf("view = %q, want visible refresh error", model.View().Content)
 	}
 
 	if got != watchRefreshInterval {
@@ -163,16 +163,46 @@ func TestWatchModelTimerCycleSchedulesExactlyOneSubsequentTimer(t *testing.T) {
 	}
 }
 
+func TestWatchModelViewUsesAltScreen(t *testing.T) {
+	for name, model := range map[string]watchModel{
+		"initial": newWatchModel(watchConfig{}),
+		"loaded":  {output: "A watched task\n"},
+		"error":   {output: "A watched task\n", err: errors.New("refresh failed")},
+	} {
+		if !model.View().AltScreen {
+			t.Fatalf("%s view does not enable the alternate screen", name)
+		}
+	}
+}
+
+func TestWatchModelIgnoresOtherKeysAndReleases(t *testing.T) {
+	for name, msg := range map[string]tea.Msg{
+		"other key":      tea.KeyPressMsg{Code: 'a', Text: "a"},
+		"alt+q":          tea.KeyPressMsg{Code: 'q', Text: "q", Mod: tea.ModAlt},
+		"q release":      tea.KeyReleaseMsg{Code: 'q', Text: "q"},
+		"ctrl+c release": tea.KeyReleaseMsg{Code: 'c', Mod: tea.ModCtrl},
+	} {
+		model := newWatchModel(watchConfig{})
+		if _, cmd := model.Update(msg); cmd != nil {
+			t.Fatalf("%s unexpectedly returned a command", name)
+		}
+	}
+}
+
 func TestWatchModelQuitsOnQAndCtrlC(t *testing.T) {
-	for name, key := range map[string]tea.KeyMsg{
-		"q":      {Type: tea.KeyRunes, Runes: []rune{'q'}},
-		"ctrl+c": {Type: tea.KeyCtrlC},
+	for name, key := range map[string]tea.KeyPressMsg{
+		"q":      {Code: 'q', Text: "q"},
+		"ctrl+c": {Code: 'c', Mod: tea.ModCtrl},
 	} {
 		model := newWatchModel(watchConfig{})
 		_, cmd := model.Update(key)
 
 		if cmd == nil {
 			t.Fatalf("%s did not return quit command", name)
+		}
+
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Fatalf("%s did not produce a quit message", name)
 		}
 	}
 }
