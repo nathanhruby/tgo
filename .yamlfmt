@@ -1,4 +1,0 @@
-line_ending: lf
-formatter:
-  include_document_start: true
-  pad_line_comments: 2
