@@ -12,13 +12,18 @@ import (
 func writeWatchTasks(t *testing.T, tasks map[string]Task) string {
 	t.Helper()
 	dir := t.TempDir()
+	writeWatchTasksTo(t, dir, tasks)
+
+	return dir
+}
+
+func writeWatchTasksTo(t *testing.T, dir string, tasks map[string]Task) {
+	t.Helper()
 
 	tl := &TaskList{Tasks: tasks, Done: map[string]Task{}, Name: "tasks", TaskDir: dir}
 	if err := tl.Write(false); err != nil {
 		t.Fatal(err)
 	}
-
-	return dir
 }
 
 func TestWatchModelLoadsTasksImmediately(t *testing.T) {
@@ -79,6 +84,36 @@ func TestWatchModelTimerReloadsTaskFile(t *testing.T) {
 	updated, _ := model.Update(cmd())
 	if !strings.Contains(updated.(watchModel).View().Content, "A watched task") {
 		t.Fatal("reload command did not load task file")
+	}
+}
+
+func TestWatchModelReloadsChangedFile(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "Original text"}})
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+
+	updated, _ := model.Update(model.Init()())
+	model = updated.(watchModel)
+
+	if view := model.View().Content; !strings.Contains(view, "Original text") {
+		t.Fatalf("initial view = %q, want original task", view)
+	}
+
+	writeWatchTasksTo(t, dir, map[string]Task{"abc": {ID: "abc", Text: "Changed text"}})
+
+	_, load := model.Update(watchTimerMsg{})
+	if load == nil {
+		t.Fatal("timer did not return a reload command")
+	}
+
+	updated, _ = model.Update(load())
+	view := updated.(watchModel).View().Content
+
+	if !strings.Contains(view, "Changed text") {
+		t.Fatalf("view after refresh = %q, want changed text", view)
+	}
+
+	if strings.Contains(view, "Original text") {
+		t.Fatalf("view after refresh = %q, still shows stale text", view)
 	}
 }
 
