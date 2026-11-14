@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/urfave/cli/v3"
 )
 
@@ -93,6 +94,36 @@ func TestWatchConfigFromCommand(t *testing.T) {
 				t.Fatalf("watch config = %+v, want %+v", got, want)
 			}
 		})
+	}
+}
+
+func TestWatchActionPassesContext(t *testing.T) {
+	type contextKey struct{}
+
+	originalRunWatchProgram := runWatchProgram
+
+	t.Cleanup(func() { runWatchProgram = originalRunWatchProgram })
+
+	var got context.Context
+
+	runWatchProgram = func(ctx context.Context, _ tea.Model) error {
+		got = ctx
+
+		return nil
+	}
+
+	ctx := context.WithValue(context.Background(), contextKey{}, "watch")
+
+	if err := buildApp().Run(ctx, []string{"tgo", "watch"}); err != nil {
+		t.Fatalf("run watch: %v", err)
+	}
+
+	if got == nil {
+		t.Fatal("watch never started a program")
+	}
+
+	if value, ok := got.Value(contextKey{}).(string); !ok || value != "watch" {
+		t.Fatalf("watch program context = %v, want the CLI context", got)
 	}
 }
 

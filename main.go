@@ -61,10 +61,15 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func watchAction(_ context.Context, cmd *cli.Command) error {
-	_, err := tea.NewProgram(newWatchModel(watchConfigFromCommand(cmd))).Run()
+// runWatchProgram runs the watch model until it quits or ctx is canceled.
+var runWatchProgram = func(ctx context.Context, model tea.Model) error {
+	_, err := tea.NewProgram(model, tea.WithContext(ctx)).Run()
 
 	return err
+}
+
+func watchAction(ctx context.Context, cmd *cli.Command) error {
+	return runWatchProgram(ctx, newWatchModel(watchConfigFromCommand(cmd)))
 }
 
 // watchConfigFromCommand reads the watch settings from parsed CLI flags.
