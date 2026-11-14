@@ -22,6 +22,7 @@ type watchModel struct {
 	config   watchConfig
 	output   string
 	err      error
+	height   int
 	schedule func(time.Duration) tea.Cmd
 }
 
@@ -59,6 +60,10 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = nil
 
 		return m, m.schedule(watchRefreshInterval)
+	case tea.WindowSizeMsg:
+		m.height = msg.Height
+
+		return m, nil
 	case watchTimerMsg:
 		return m, m.load()
 	}
@@ -67,12 +72,27 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m watchModel) View() tea.View {
-	output := m.output
+	lines := make([]string, 0, 1+strings.Count(m.output, "\n"))
+
 	if m.err != nil {
-		output = fmt.Sprintf("%serror: %v\n", output, m.err)
+		lines = append(lines, fmt.Sprintf("error: %v", m.err))
 	}
 
-	view := tea.NewView(output)
+	if m.output != "" {
+		lines = append(lines, strings.Split(strings.TrimSuffix(m.output, "\n"), "\n")...)
+	}
+
+	if m.height > 0 && len(lines) > m.height {
+		hidden := len(lines) - (m.height - 1)
+		lines = append(lines[:m.height-1], fmt.Sprintf("… +%d more", hidden))
+	}
+
+	var content string
+	if len(lines) > 0 {
+		content = strings.Join(lines, "\n") + "\n"
+	}
+
+	view := tea.NewView(content)
 	view.AltScreen = true
 
 	return view

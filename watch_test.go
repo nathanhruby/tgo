@@ -155,6 +155,60 @@ func TestWatchModelReloadsChangedFile(t *testing.T) {
 	}
 }
 
+func TestWatchModelKeepsErrorVisibleWhenOutputOverflowsTerminal(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "First task"},
+		"bbb": {ID: "bbb", Text: "Second task"},
+		"ccc": {ID: "ccc", Text: "Third task"},
+		"ddd": {ID: "ddd", Text: "Fourth task"},
+		"eee": {ID: "eee", Text: "Fifth task"},
+	})
+
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	updated, _ := model.Update(model.Init()())
+	updated, _ = updated.(watchModel).Update(watchLoadResult{err: errors.New("refresh failed")})
+	updated, _ = updated.(watchModel).Update(tea.WindowSizeMsg{Height: 3})
+
+	view := updated.(watchModel).View().Content
+	lines := strings.Split(strings.TrimSuffix(view, "\n"), "\n")
+
+	if len(lines) != 3 {
+		t.Fatalf("view has %d lines, want 3: %q", len(lines), view)
+	}
+
+	if !strings.HasPrefix(lines[0], "error: refresh failed") {
+		t.Fatalf("first line = %q, want the error", lines[0])
+	}
+
+	if !strings.Contains(lines[2], "+4 more") {
+		t.Fatalf("last line = %q, want an overflow marker", lines[2])
+	}
+}
+
+func TestWatchModelShowsWholeListWhenTerminalFits(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "First task"},
+		"bbb": {ID: "bbb", Text: "Second task"},
+	})
+
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	updated, _ := model.Update(model.Init()())
+	updated, _ = updated.(watchModel).Update(watchLoadResult{err: errors.New("refresh failed")})
+	updated, _ = updated.(watchModel).Update(tea.WindowSizeMsg{Height: 10})
+
+	view := updated.(watchModel).View().Content
+
+	for _, text := range []string{"error: refresh failed", "First task", "Second task"} {
+		if !strings.Contains(view, text) {
+			t.Fatalf("view = %q, want %q", view, text)
+		}
+	}
+
+	if strings.Contains(view, "more") {
+		t.Fatalf("view = %q, want no overflow marker", view)
+	}
+}
+
 func TestWatchModelRetainsOutputOnRefreshError(t *testing.T) {
 	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "A watched task"}})
 	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
