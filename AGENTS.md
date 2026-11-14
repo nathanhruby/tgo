@@ -4,18 +4,26 @@ Instructions for agents working in this repository.
 
 ## Required workflow
 
-1. **Read the design before changing behavior.** Find the relevant spec and plan under `docs/superpowers/specs/` and `docs/superpowers/plans/`. If the change has no spec, write a short one first.
+1. **Create a branch off `main` before making any change.** Never commit directly to `main`.
+   Done when: `git branch --show-current` reports a feature branch, not `main`.
+2. **Read the design before changing behavior.** Find the relevant spec and plan under `docs/superpowers/specs/` and `docs/superpowers/plans/`. If the change has no spec, write a short one first.
    Done when: you can name the file and the behavior it specifies.
-2. **Write the failing test first.** Add or update a `_test.go` test that exercises the missing behavior through the real code path. Run `mise run test` and confirm it fails for the intended reason, not an unrelated compile error.
+3. **Write the failing test first.** Add or update a `_test.go` test that exercises the missing behavior through the real code path. Run `mise run test` and confirm it fails for the intended reason, not an unrelated compile error.
    Done when: the new test is red and its failure message names the missing behavior.
-3. **Implement the smallest change that passes.** Prefer the standard library and existing helpers. Do not add an abstraction until a second caller needs it.
+4. **Implement the smallest change that passes.** Prefer the standard library and existing helpers. Do not add an abstraction until a second caller needs it.
    Done when: the new test passes and the full suite still passes.
-4. **Run every check.** Run `mise run test`, `mise run lint`, and `mise run check`.
+5. **Run every check.** Run `mise run test`, `mise run lint`, and `mise run check`.
    Done when: all three pass. If a tool is unavailable, say so explicitly instead of claiming it passed.
-5. **Commit with a conventional commit.** Commit each coherent change after the checks pass.
+6. **Commit with a conventional commit.** Commit each coherent change after the checks pass.
    Done when: `mise run pr-title -- "<your subject>"` accepts the message.
+7. **Push the branch and open a pull request.** Open the PR with `gh pr create` and use the same conventional-commit format for its title.
+   Done when: `gh pr view` shows the open PR for your branch.
 
 ## Non-negotiable rules
+
+### Never commit to main
+
+Always work on a branch cut from `main` and deliver every change through a pull request. Do not commit, push, or merge directly to `main`. Do not start work on `main` even for a one-line change. Push the feature branch and open the pull request with `gh pr create`; the PR title follows the conventional commit format.
 
 ### Tests come first
 
