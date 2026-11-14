@@ -31,14 +31,19 @@ func writeWatchTasksTo(t *testing.T, dir string, tasks map[string]Task) {
 func TestWatchModelLoadsTasksImmediately(t *testing.T) {
 	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "A watched task"}})
 
-	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	config := watchConfig{taskDir: dir, listName: "tasks"}
+	model := newWatchModel(config)
 	msg := model.Init()()
 	updated, _ := model.Update(msg)
 
 	view := updated.(watchModel).View().Content
 
-	if !strings.Contains(view, "a - A watched task") {
+	if !strings.Contains(view, "A watched task") {
 		t.Fatalf("watch view does not contain the task list: %q", view)
+	}
+
+	if want := renderTaskList(t, config); view != want {
+		t.Fatalf("watch view = %q, want %q", view, want)
 	}
 }
 

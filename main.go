@@ -62,8 +62,10 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 }
 
 // runWatchProgram runs the watch model until it quits or ctx is canceled.
-var runWatchProgram = func(ctx context.Context, model tea.Model) error {
-	_, err := tea.NewProgram(model, tea.WithContext(ctx)).Run()
+var runWatchProgram = func(ctx context.Context, model tea.Model, opts ...tea.ProgramOption) error {
+	opts = append(opts, tea.WithContext(ctx))
+
+	_, err := tea.NewProgram(model, opts...).Run()
 
 	return err
 }
