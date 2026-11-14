@@ -130,16 +130,34 @@ if [ "$(mode_of "$trailing_file")" != "$trailing_mode_before" ]; then
 fi
 
 
-if command -v mise >/dev/null 2>&1 && mise exec -- yamlfmt --version >/dev/null 2>&1; then
-    yaml_file=$fixture_dir/crlf.yaml
-    printf '%s\r\n' '---' 'key: value' > "$yaml_file"
-    if (cd "$repo_root" && mise exec -- yamlfmt "$yaml_file") >"$fixture_dir/yamlfmt.out" 2>&1; then
-        if LC_ALL=C grep -q "$(printf '\r')" "$yaml_file"; then
-            fail 'yamlfmt reintroduced CRLF in the CRLF fixture'
-        fi
-    else
-        fail 'yamlfmt could not format the CRLF fixture'
+if command -v mise >/dev/null 2>&1 && mise which actionlint >/dev/null 2>&1; then
+    workflow_repo=$fixture_dir/workflow-repo
+    mkdir -p "$workflow_repo/.github/workflows"
+    cp "$repo_root/mise.toml" "$repo_root/hk.pkl" "$workflow_repo/"
+    (cd "$workflow_repo" && git init -q .)
+    cat > "$workflow_repo/.github/workflows/bad.yml" <<'EOF'
+---
+name: bad workflow
+"on":
+  push:
+    branch:
+      - main
+permissions: read-all
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+EOF
+    if (cd "$workflow_repo" && mise exec -- hk run check .github/workflows/bad.yml) \
+        >"$fixture_dir/actionlint.out" 2>&1; then
+        fail 'hk accepted a workflow with an invalid push branch filter'
     fi
+    if ! grep -Fq 'unexpected key "branch"' "$fixture_dir/actionlint.out"; then
+        fail 'hk did not report the actionlint diagnostic'
+    fi
+else
+    fail 'actionlint is not installed through mise'
 fi
 
 if [ "$failures" -eq 0 ]; then
