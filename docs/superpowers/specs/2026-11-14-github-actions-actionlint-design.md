@@ -18,10 +18,10 @@ Check GitHub Actions workflows with `actionlint` instead of generic YAML formatt
 
 - The check stays read-only: `actionlint` has no fix command, so local hooks and CI behave identically.
 - `mise run check` and `mise run check:ci` continue to run every configured step.
-- `tests/fix-wave-tests.sh` exercises the configured `hk` step against a workflow that YAML linters accept and `actionlint` rejects.
+- The unused `tests/fix-wave-tests.sh` manual fixtures are removed; no mise task, hook, or workflow invoked them.
 
 ## Verification
 
 1. `mise install` installs `actionlint` at the pinned version.
-2. `tests/fix-wave-tests.sh` fails before the change and passes after it.
+2. `mise run check` runs the `actionlint` step against every workflow file.
 3. `mise run test`, `mise run lint`, and `mise run check` pass.

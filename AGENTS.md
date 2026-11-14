@@ -50,7 +50,6 @@ Format: `<type>(<scope>): <subject>`
 - `watch.go` — Bubble Tea watch model, timer sequencing, and rendering.
 - `*_test.go` — package-level tests next to the code they cover.
 - `docs/superpowers/specs/` and `docs/superpowers/plans/` — approved designs and implementation plans.
-- `tests/fix-wave-tests.sh` — shell-level end-to-end checks.
 - `.mise/tasks/pr-title` — conventional commit and PR title validator.
 
 ## Commands
