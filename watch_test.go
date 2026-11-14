@@ -363,6 +363,38 @@ func TestWatchModelTimerCycleSchedulesExactlyOneSubsequentTimer(t *testing.T) {
 	}
 }
 
+func TestWatchModelZeroValueSchedulesRefresh(t *testing.T) {
+	var model watchModel
+
+	if _, cmd := model.Update(watchLoadResult{output: "text"}); cmd == nil {
+		t.Fatal("zero-value model did not schedule a refresh")
+	}
+}
+
+func TestWatchModelIgnoresTimerWhileLoadIsInFlight(t *testing.T) {
+	model := newWatchModel(watchConfig{taskDir: t.TempDir(), listName: "tasks"})
+
+	updated, load := model.Update(watchTimerMsg{})
+	if load == nil {
+		t.Fatal("timer did not start a load")
+	}
+
+	model = updated.(watchModel)
+
+	if _, cmd := model.Update(watchTimerMsg{}); cmd != nil {
+		t.Fatal("a second timer started a concurrent load")
+	}
+
+	updated, cmd := model.Update(load())
+	if cmd == nil {
+		t.Fatal("load result did not schedule the next refresh")
+	}
+
+	if _, cmd := updated.(watchModel).Update(watchTimerMsg{}); cmd == nil {
+		t.Fatal("timer after the load result did not start a load")
+	}
+}
+
 func TestWatchModelViewUsesAltScreen(t *testing.T) {
 	for name, model := range map[string]watchModel{
 		"initial": newWatchModel(watchConfig{}),

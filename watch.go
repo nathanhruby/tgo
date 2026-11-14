@@ -23,6 +23,7 @@ type watchModel struct {
 	output   string
 	err      error
 	height   int
+	loading  bool
 	schedule func(time.Duration) tea.Cmd
 }
 
@@ -34,9 +35,7 @@ type watchLoadResult struct {
 type watchTimerMsg struct{}
 
 func newWatchModel(config watchConfig) watchModel {
-	return watchModel{config: config, schedule: func(d time.Duration) tea.Cmd {
-		return tea.Tick(d, func(time.Time) tea.Msg { return watchTimerMsg{} })
-	}}
+	return watchModel{config: config}
 }
 
 func (m watchModel) Init() tea.Cmd {
@@ -50,21 +49,29 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case watchLoadResult:
+		m.loading = false
+
 		if msg.err != nil {
 			m.err = msg.err
 
-			return m, m.schedule(watchRefreshInterval)
+			return m, m.scheduleRefresh()
 		}
 
 		m.output = msg.output
 		m.err = nil
 
-		return m, m.schedule(watchRefreshInterval)
+		return m, m.scheduleRefresh()
 	case tea.WindowSizeMsg:
 		m.height = msg.Height
 
 		return m, nil
 	case watchTimerMsg:
+		if m.loading {
+			return m, nil
+		}
+
+		m.loading = true
+
 		return m, m.load()
 	}
 
@@ -96,6 +103,15 @@ func (m watchModel) View() tea.View {
 	view.AltScreen = true
 
 	return view
+}
+
+// scheduleRefresh returns the command for the next refresh tick.
+func (m watchModel) scheduleRefresh() tea.Cmd {
+	if m.schedule != nil {
+		return m.schedule(watchRefreshInterval)
+	}
+
+	return tea.Tick(watchRefreshInterval, func(time.Time) tea.Msg { return watchTimerMsg{} })
 }
 
 func (m watchModel) load() tea.Cmd {
