@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/urfave/cli/v3"
 )
 
 // runApp runs the CLI with the given args and returns the exit error (nil on success).
@@ -44,6 +46,54 @@ func TestCLI_WatchCommand(t *testing.T) {
 	}
 
 	t.Fatal("watch command is missing")
+}
+
+func TestWatchConfigFromCommand(t *testing.T) {
+	for name, tc := range map[string]struct {
+		args []string
+		want func(dir string) watchConfig
+	}{
+		"list options": {
+			args: []string{"watch", "--grep", "milk", "--verbose"},
+			want: func(dir string) watchConfig {
+				return watchConfig{taskDir: dir, listName: "tasks", grep: "milk", verbose: true}
+			},
+		},
+		"quiet and custom list": {
+			args: []string{"--list", "work", "watch", "--quiet"},
+			want: func(dir string) watchConfig {
+				return watchConfig{taskDir: dir, listName: "work", quiet: true}
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+
+			var got watchConfig
+
+			app := buildApp()
+			for _, command := range app.Commands {
+				if command.Name == "watch" {
+					command.Action = func(_ context.Context, cmd *cli.Command) error {
+						got = watchConfigFromCommand(cmd)
+
+						return nil
+					}
+
+					break
+				}
+			}
+
+			args := append([]string{"tgo", "--task-dir", dir}, tc.args...)
+			if err := app.Run(context.Background(), args); err != nil {
+				t.Fatalf("run %v: %v", args, err)
+			}
+
+			if want := tc.want(dir); got != want {
+				t.Fatalf("watch config = %+v, want %+v", got, want)
+			}
+		})
+	}
 }
 
 func TestCLI_Add(t *testing.T) {
