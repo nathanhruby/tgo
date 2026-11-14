@@ -61,17 +61,30 @@ func addAction(_ context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func watchAction(_ context.Context, cmd *cli.Command) error {
+// runWatchProgram runs the watch model until it quits or ctx is canceled.
+var runWatchProgram = func(ctx context.Context, model tea.Model, opts ...tea.ProgramOption) error {
+	opts = append(opts, tea.WithContext(ctx))
+
+	_, err := tea.NewProgram(model, opts...).Run()
+
+	return err
+}
+
+func watchAction(ctx context.Context, cmd *cli.Command) error {
+	return runWatchProgram(ctx, newWatchModel(watchConfigFromCommand(cmd)))
+}
+
+// watchConfigFromCommand reads the watch settings from parsed CLI flags.
+func watchConfigFromCommand(cmd *cli.Command) watchConfig {
 	root := cmd.Root()
-	_, err := tea.NewProgram(newWatchModel(watchConfig{
+
+	return watchConfig{
 		taskDir:  root.String("task-dir"),
 		listName: root.String("list"),
 		grep:     cmd.String("grep"),
 		verbose:  cmd.Bool("verbose"),
 		quiet:    cmd.Bool("quiet"),
-	})).Run()
-
-	return err
+	}
 }
 
 func listAction(_ context.Context, cmd *cli.Command) error {

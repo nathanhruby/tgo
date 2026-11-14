@@ -4,7 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // runApp runs the CLI with the given args and returns the exit error (nil on success).
@@ -44,6 +48,102 @@ func TestCLI_WatchCommand(t *testing.T) {
 	}
 
 	t.Fatal("watch command is missing")
+}
+
+func TestWatchConfigFromCommand(t *testing.T) {
+	originalRunWatchProgram := runWatchProgram
+
+	t.Cleanup(func() { runWatchProgram = originalRunWatchProgram })
+
+	for name, tc := range map[string]struct {
+		args []string
+		want func(dir string) watchConfig
+	}{
+		"list options": {
+			args: []string{"watch", "--grep", "milk", "--verbose"},
+			want: func(dir string) watchConfig {
+				return watchConfig{taskDir: dir, listName: "tasks", grep: "milk", verbose: true}
+			},
+		},
+		"quiet and custom list": {
+			args: []string{"--list", "work", "watch", "--quiet"},
+			want: func(dir string) watchConfig {
+				return watchConfig{taskDir: dir, listName: "work", quiet: true}
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+
+			var got watchConfig
+
+			runWatchProgram = func(_ context.Context, model tea.Model, _ ...tea.ProgramOption) error {
+				got = model.(watchModel).config
+
+				return nil
+			}
+
+			args := append([]string{"tgo", "--task-dir", dir}, tc.args...)
+			if err := buildApp().Run(context.Background(), args); err != nil {
+				t.Fatalf("run %v: %v", args, err)
+			}
+
+			if want := tc.want(dir); got != want {
+				t.Fatalf("watch config = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestWatchActionPassesContext(t *testing.T) {
+	type contextKey struct{}
+
+	originalRunWatchProgram := runWatchProgram
+
+	t.Cleanup(func() { runWatchProgram = originalRunWatchProgram })
+
+	var got context.Context
+
+	runWatchProgram = func(ctx context.Context, _ tea.Model, _ ...tea.ProgramOption) error {
+		got = ctx
+
+		return nil
+	}
+
+	ctx := context.WithValue(context.Background(), contextKey{}, "watch")
+
+	if err := buildApp().Run(ctx, []string{"tgo", "watch"}); err != nil {
+		t.Fatalf("run watch: %v", err)
+	}
+
+	if got == nil {
+		t.Fatal("watch never started a program")
+	}
+
+	if value, ok := got.Value(contextKey{}).(string); !ok || value != "watch" {
+		t.Fatalf("watch program context = %v, want the CLI context", got)
+	}
+}
+
+func TestRunWatchProgramStopsOnCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan error, 1)
+
+	go func() {
+		done <- runWatchProgram(ctx, newWatchModel(watchConfig{taskDir: t.TempDir(), listName: "tasks"}),
+			tea.WithInput(strings.NewReader("")), tea.WithoutRenderer())
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "context canceled") {
+			t.Fatalf("run watch = %v, want a context cancellation error", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("watch did not stop when the context was canceled")
+	}
 }
 
 func TestCLI_Add(t *testing.T) {

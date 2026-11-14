@@ -6,7 +6,7 @@
 
 **Architecture:** A focused Bubble Tea model in `watch.go` owns refresh state, timer sequencing, error display, and quit handling while delegating task formatting to `TaskList.List`. `main.go` only registers the command and passes the existing CLI flags into the model.
 
-**Tech Stack:** Go 1.26+, urfave/cli v3, Bubble Tea v1.3.10, Go's standard `testing` package
+**Tech Stack:** Go 1.26+, urfave/cli v3, Bubble Tea v2 (`charm.land/bubbletea/v2`), Go's standard `testing` package
 
 **Spec:** `docs/superpowers/specs/2026-09-20-watch-command-design.md`
 
@@ -20,17 +20,17 @@
 - Support the existing `--grep`, `--verbose`, and `--quiet` list flags.
 - Display refresh errors, retain the last successful output, and retry.
 - Do not add interval configuration, done-task watching, task mutation, filesystem events, styling, selection, or scrolling.
-- Do not commit changes; the user requested implementation but did not request Git commits.
-- Preserve the already-added Bubble Tea dependency files and the failing `watch_test.go` red test.
+- Commit each coherent task with a conventional commit after the repository checks pass.
+- Keep every existing test running; add regression tests rather than removing or weakening them.
 
 ## File Structure
 
-- Create `watch.go`: watch configuration, Bubble Tea model/messages/commands, rendering, and program runner.
+- Create `watch.go`: watch configuration, Bubble Tea model/messages/commands, and rendering. `main.go` owns the program runner.
 - Modify `watch_test.go`: direct model tests with real temporary task files and an injected scheduler boundary.
 - Modify `main.go`: register the `watch` command using `listFlags()` and implement its CLI action.
 - Modify `main_test.go`: verify the command and shared flags are exposed by `buildApp()`.
 - Modify `README.md`: add concise watch usage.
-- Modify `go.mod` and `go.sum`: retain Bubble Tea v1.3.10 and run `go mod tidy` after it becomes a direct import.
+- Modify `go.mod` and `go.sum`: retain `charm.land/bubbletea/v2` and run `go mod tidy` after it becomes a direct import.
 
 ---
 
@@ -80,7 +80,7 @@ Use an injectable scheduler function on the model to observe the requested durat
 
 - [ ] **Step 5: Implement timer sequencing, error rendering, and quit handling**
 
-Use one result message and one timer message. A result schedules one timer; a timer starts one load. Keep the last successful output when a result contains an error. `View` appends `error: <message>` only while an error is present.
+Use one result message and one timer message. A result schedules one timer; a timer starts one load and is ignored while a load is in flight. Keep the last successful output when a result contains an error. `View` renders `error: <message>` before the output only while an error is present, and reports hidden lines when the output exceeds the terminal height.
 
 - [ ] **Step 6: Run model tests**
 
@@ -115,7 +115,7 @@ Expected: FAIL because `buildApp()` has no `watch` command.
 
 - [ ] **Step 3: Add the watch action and command**
 
-Implement `watchAction` to build `watchConfig` from root and command flags, start `tea.NewProgram(newWatchModel(config), tea.WithAltScreen())`, and return the program error. Register `watch` in `buildApp()` with usage `Watch open tasks`, `listFlags()`, and `watchAction`.
+Implement `watchAction` to read `watchConfig` from the parsed command, start `tea.NewProgram(model, tea.WithContext(ctx))`, and return the program error. Alternate-screen mode is set on the view with `view.AltScreen = true`; v2 has no `tea.WithAltScreen()` option. Register `watch` in `buildApp()` with usage `Watch open tasks`, `listFlags()`, and `watchAction`.
 
 - [ ] **Step 4: Run CLI and model tests green**
 
@@ -152,7 +152,7 @@ tgo watch --grep apartment
 go mod tidy
 ```
 
-Confirm `github.com/charmbracelet/bubbletea v1.3.10` is a direct requirement and only its transitive packages remain indirect.
+Confirm `charm.land/bubbletea/v2` is a direct requirement and only its transitive packages remain indirect.
 
 - [ ] **Step 3: Run focused and full validation**
 
