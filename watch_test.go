@@ -45,13 +45,51 @@ func TestWatchModelForwardsListOptions(t *testing.T) {
 		"abc": {ID: "abc", Text: "A watched task"},
 		"def": {ID: "def", Text: "A hidden task"},
 	})
-	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks", grep: "watched", verbose: true, quiet: false})
-	updated, _ := model.Update(model.Init()())
-	view := updated.(watchModel).View().Content
 
-	if !strings.Contains(view, "A watched task") || strings.Contains(view, "A hidden task") {
-		t.Fatalf("list options were not forwarded: %q", view)
+	for name, options := range map[string]watchConfig{
+		"default": {},
+		"quiet":   {quiet: true},
+		"verbose": {verbose: true},
+		"grep":    {grep: "watched"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			config := options
+			config.taskDir = dir
+			config.listName = "tasks"
+
+			model := newWatchModel(config)
+			updated, _ := model.Update(model.Init()())
+			got := updated.(watchModel).View().Content
+
+			if want := renderTaskList(t, config); got != want {
+				t.Fatalf("view = %q, want %q", got, want)
+			}
+
+			if options.quiet && strings.Contains(got, "abc") {
+				t.Fatalf("quiet view = %q, want no task IDs", got)
+			}
+
+			if options.verbose && !strings.Contains(got, "abc") {
+				t.Fatalf("verbose view = %q, want full task IDs", got)
+			}
+		})
 	}
+}
+
+// renderTaskList renders the same list through TaskList.List so watch output
+// can be compared against list output.
+func renderTaskList(t *testing.T, config watchConfig) string {
+	t.Helper()
+
+	tl, err := NewTaskList(config.taskDir, config.listName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var rendered strings.Builder
+	tl.List(&rendered, "tasks", config.verbose, config.quiet, config.grep)
+
+	return rendered.String()
 }
 
 func TestWatchModelSchedulesNextRefresh(t *testing.T) {
