@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -206,6 +208,77 @@ func TestWatchModelShowsWholeListWhenTerminalFits(t *testing.T) {
 
 	if strings.Contains(view, "more") {
 		t.Fatalf("view = %q, want no overflow marker", view)
+	}
+}
+
+func TestWatchModelInitialLoadErrorIsVisible(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "tasks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var scheduled time.Duration
+
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	model.schedule = func(d time.Duration) tea.Cmd {
+		scheduled = d
+
+		return nil
+	}
+
+	updated, _ := model.Update(model.Init()())
+	view := updated.(watchModel).View().Content
+
+	if !strings.Contains(view, "error:") {
+		t.Fatalf("view = %q, want the load error", view)
+	}
+
+	if scheduled != watchRefreshInterval {
+		t.Fatalf("scheduled retry = %v, want %v", scheduled, watchRefreshInterval)
+	}
+}
+
+func TestWatchModelClearsErrorAfterSuccessfulRefresh(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "First task"}})
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	model.schedule = func(time.Duration) tea.Cmd { return nil }
+
+	updated, _ := model.Update(model.Init()())
+	model = updated.(watchModel)
+
+	path := filepath.Join(dir, "tasks")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, load := model.Update(watchTimerMsg{})
+	updated, _ = model.Update(load())
+	model = updated.(watchModel)
+
+	if !strings.Contains(model.View().Content, "error:") {
+		t.Fatalf("view = %q, want the load error", model.View().Content)
+	}
+
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	writeWatchTasksTo(t, dir, map[string]Task{"def": {ID: "def", Text: "Second task"}})
+
+	_, load = model.Update(watchTimerMsg{})
+	updated, _ = model.Update(load())
+	view := updated.(watchModel).View().Content
+
+	if strings.Contains(view, "error:") {
+		t.Fatalf("view = %q, want the error cleared", view)
+	}
+
+	if !strings.Contains(view, "Second task") {
+		t.Fatalf("view = %q, want the refreshed task", view)
 	}
 }
 
