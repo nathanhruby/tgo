@@ -285,14 +285,56 @@ func TestWatchModelClearsErrorAfterSuccessfulRefresh(t *testing.T) {
 func TestWatchModelRetainsOutputOnRefreshError(t *testing.T) {
 	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "A watched task"}})
 	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	model.schedule = func(time.Duration) tea.Cmd { return nil }
+
 	updated, _ := model.Update(model.Init()())
 	model = updated.(watchModel)
+	output := model.output
 
-	model.err = errors.New("refresh failed")
-	view := model.View().Content
+	updated, _ = model.Update(watchLoadResult{err: errors.New("refresh failed")})
+	view := updated.(watchModel).View().Content
 
-	if !strings.Contains(view, "A watched task") || !strings.Contains(view, "error: refresh failed") {
-		t.Fatalf("error view = %q", view)
+	if want := "error: refresh failed\n" + output; view != want {
+		t.Fatalf("error view = %q, want %q", view, want)
+	}
+}
+
+func TestWatchModelEmptyListRendersNothing(t *testing.T) {
+	model := newWatchModel(watchConfig{taskDir: t.TempDir(), listName: "tasks"})
+	model.schedule = func(time.Duration) tea.Cmd { return nil }
+
+	updated, _ := model.Update(model.Init()())
+
+	if view := updated.(watchModel).View().Content; view != "" {
+		t.Fatalf("empty list view = %q, want no output", view)
+	}
+}
+
+func TestWatchModelExcludesFinishedTasks(t *testing.T) {
+	dir := t.TempDir()
+
+	tl := &TaskList{
+		Tasks:   map[string]Task{"abc": {ID: "abc", Text: "Open task"}},
+		Done:    map[string]Task{"def": {ID: "def", Text: "Finished task"}},
+		Name:    "tasks",
+		TaskDir: dir,
+	}
+	if err := tl.Write(false); err != nil {
+		t.Fatal(err)
+	}
+
+	model := newWatchModel(watchConfig{taskDir: dir, listName: "tasks"})
+	model.schedule = func(time.Duration) tea.Cmd { return nil }
+
+	updated, _ := model.Update(model.Init()())
+	view := updated.(watchModel).View().Content
+
+	if !strings.Contains(view, "Open task") {
+		t.Fatalf("view = %q, want the open task", view)
+	}
+
+	if strings.Contains(view, "Finished task") {
+		t.Fatalf("view = %q, want finished tasks excluded", view)
 	}
 }
 
