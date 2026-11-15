@@ -4,11 +4,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func writeWatchTasks(t *testing.T, tasks map[string]Task) string {
@@ -28,6 +30,69 @@ func writeWatchTasksTo(t *testing.T, dir string, tasks map[string]Task) {
 	}
 }
 
+// watchBody returns the view with styling stripped, as a list of lines.
+func watchBody(view string) []string {
+	view = strings.TrimSuffix(ansi.Strip(view), "\n")
+	if view == "" {
+		return nil
+	}
+
+	return strings.Split(view, "\n")
+}
+
+func TestWatchModelRendersLipglossList(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"aab": {ID: "aab", Text: "Second"},
+		"bbb": {ID: "bbb", Text: "Third"},
+	})
+
+	config := watchConfig{taskDir: dir, listName: "tasks"}
+	model := newWatchModel(config)
+	updated, _ := model.Update(model.Init()())
+
+	want := []string{"• aaa - First", "• aab - Second", "• b   - Third"}
+	if got := watchBody(updated.(watchModel).View().Content); !slices.Equal(got, want) {
+		t.Fatalf("view lines = %q, want %q", got, want)
+	}
+}
+
+func TestWatchModelQuietRendersBulletsWithoutLabels(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{"aaa": {ID: "aaa", Text: "First"}})
+
+	config := watchConfig{taskDir: dir, listName: "tasks", quiet: true}
+	model := newWatchModel(config)
+	updated, _ := model.Update(model.Init()())
+
+	if got, want := watchBody(updated.(watchModel).View().Content), []string{"• First"}; !slices.Equal(got, want) {
+		t.Fatalf("view lines = %q, want %q", got, want)
+	}
+}
+
+func TestWatchModelBodyMatchesListOutput(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"aab": {ID: "aab", Text: "Second"},
+	})
+
+	config := watchConfig{taskDir: dir, listName: "tasks"}
+	model := newWatchModel(config)
+	updated, _ := model.Update(model.Init()())
+
+	body := watchBody(updated.(watchModel).View().Content)
+	listLines := strings.Split(strings.TrimSuffix(renderTaskList(t, config), "\n"), "\n")
+
+	if len(body) != len(listLines) {
+		t.Fatalf("watch body has %d lines, list has %d", len(body), len(listLines))
+	}
+
+	for i := range listLines {
+		if want := "• " + listLines[i]; body[i] != want {
+			t.Fatalf("line %d = %q, want %q", i, body[i], want)
+		}
+	}
+}
+
 func TestWatchModelLoadsTasksImmediately(t *testing.T) {
 	dir := writeWatchTasks(t, map[string]Task{"abc": {ID: "abc", Text: "A watched task"}})
 
@@ -42,8 +107,8 @@ func TestWatchModelLoadsTasksImmediately(t *testing.T) {
 		t.Fatalf("watch view does not contain the task list: %q", view)
 	}
 
-	if want := renderTaskList(t, config); view != want {
-		t.Fatalf("watch view = %q, want %q", view, want)
+	if got, want := watchBody(view), []string{"• a - A watched task"}; !slices.Equal(got, want) {
+		t.Fatalf("watch view lines = %q, want %q", got, want)
 	}
 }
 
@@ -66,10 +131,16 @@ func TestWatchModelForwardsListOptions(t *testing.T) {
 
 			model := newWatchModel(config)
 			updated, _ := model.Update(model.Init()())
-			got := updated.(watchModel).View().Content
+			body := watchBody(updated.(watchModel).View().Content)
+			got := strings.Join(body, "\n")
 
-			if want := renderTaskList(t, config); got != want {
-				t.Fatalf("view = %q, want %q", got, want)
+			var want []string
+			for _, line := range strings.Split(strings.TrimSuffix(renderTaskList(t, config), "\n"), "\n") {
+				want = append(want, "• "+line)
+			}
+
+			if !slices.Equal(body, want) {
+				t.Fatalf("view lines = %q, want %q", body, want)
 			}
 
 			if options.quiet && strings.Contains(got, "abc") {
@@ -183,7 +254,7 @@ func TestWatchModelKeepsErrorVisibleWhenOutputOverflowsTerminal(t *testing.T) {
 		t.Fatalf("view has %d lines, want 3: %q", len(lines), view)
 	}
 
-	if !strings.HasPrefix(lines[0], "error: refresh failed") {
+	if !strings.HasPrefix(ansi.Strip(lines[0]), "error: refresh failed") {
 		t.Fatalf("first line = %q, want the error", lines[0])
 	}
 
@@ -294,13 +365,12 @@ func TestWatchModelRetainsOutputOnRefreshError(t *testing.T) {
 
 	updated, _ := model.Update(model.Init()())
 	model = updated.(watchModel)
-	output := model.output
 
 	updated, _ = model.Update(watchLoadResult{err: errors.New("refresh failed")})
 	view := updated.(watchModel).View().Content
 
-	if want := "error: refresh failed\n" + output; view != want {
-		t.Fatalf("error view = %q, want %q", view, want)
+	if got, want := watchBody(view), []string{"error: refresh failed", "• a - A watched task"}; !slices.Equal(got, want) {
+		t.Fatalf("error view lines = %q, want %q", got, want)
 	}
 }
 
@@ -352,18 +422,19 @@ func TestWatchModelRetriesAfterRefreshErrorAndRetainsOutput(t *testing.T) {
 
 		return nil
 	}
-	updated, _ := model.Update(watchLoadResult{output: "successful output"})
+	updated, _ := model.Update(watchLoadResult{rows: []taskRow{{Text: "successful output"}}})
 	model = updated.(watchModel)
 
 	updated, cmd := model.Update(watchLoadResult{err: errors.New("refresh failed")})
 	model = updated.(watchModel)
 
-	if model.output != "successful output" {
-		t.Fatalf("output = %q, want retained successful output", model.output)
+	if len(model.rows) != 1 || model.rows[0].Text != "successful output" {
+		t.Fatalf("rows = %v, want retained successful output", model.rows)
 	}
 
-	if !strings.Contains(model.View().Content, "error: refresh failed") {
-		t.Fatalf("view = %q, want visible refresh error", model.View().Content)
+	lines := watchBody(model.View().Content)
+	if want := []string{"error: refresh failed", "• successful output"}; !slices.Equal(lines, want) {
+		t.Fatalf("view lines = %q, want %q", lines, want)
 	}
 
 	if got != watchRefreshInterval {
@@ -413,7 +484,7 @@ func TestWatchModelTimerCycleSchedulesExactlyOneSubsequentTimer(t *testing.T) {
 func TestWatchModelZeroValueSchedulesRefresh(t *testing.T) {
 	var model watchModel
 
-	if _, cmd := model.Update(watchLoadResult{output: "text"}); cmd == nil {
+	if _, cmd := model.Update(watchLoadResult{rows: []taskRow{{Text: "text"}}}); cmd == nil {
 		t.Fatal("zero-value model did not schedule a refresh")
 	}
 }
@@ -445,8 +516,8 @@ func TestWatchModelIgnoresTimerWhileLoadIsInFlight(t *testing.T) {
 func TestWatchModelViewUsesAltScreen(t *testing.T) {
 	for name, model := range map[string]watchModel{
 		"initial": newWatchModel(watchConfig{}),
-		"loaded":  {output: "A watched task\n"},
-		"error":   {output: "A watched task\n", err: errors.New("refresh failed")},
+		"loaded":  {rows: []taskRow{{Text: "A watched task"}}},
+		"error":   {rows: []taskRow{{Text: "A watched task"}}, err: errors.New("refresh failed")},
 	} {
 		if !model.View().AltScreen {
 			t.Fatalf("%s view does not enable the alternate screen", name)

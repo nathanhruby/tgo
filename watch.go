@@ -6,9 +6,16 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/list"
 )
 
 const watchRefreshInterval = 2 * time.Second
+
+var (
+	watchLabelStyle = lipgloss.NewStyle().Faint(true)
+	watchErrorStyle = lipgloss.NewStyle().Bold(true)
+)
 
 type watchConfig struct {
 	taskDir  string
@@ -19,17 +26,21 @@ type watchConfig struct {
 }
 
 type watchModel struct {
-	config   watchConfig
-	output   string
-	err      error
-	height   int
-	loading  bool
-	schedule func(time.Duration) tea.Cmd
+	config     watchConfig
+	rows       []taskRow
+	labelWidth int
+	openCount  int
+	err        error
+	height     int
+	loading    bool
+	schedule   func(time.Duration) tea.Cmd
 }
 
 type watchLoadResult struct {
-	output string
-	err    error
+	rows       []taskRow
+	labelWidth int
+	openCount  int
+	err        error
 }
 
 type watchTimerMsg struct{}
@@ -57,7 +68,9 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.scheduleRefresh()
 		}
 
-		m.output = msg.output
+		m.rows = msg.rows
+		m.labelWidth = msg.labelWidth
+		m.openCount = msg.openCount
 		m.err = nil
 
 		return m, m.scheduleRefresh()
@@ -79,14 +92,14 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m watchModel) View() tea.View {
-	lines := make([]string, 0, 1+strings.Count(m.output, "\n"))
+	lines := make([]string, 0, 1+len(m.rows))
 
 	if m.err != nil {
-		lines = append(lines, fmt.Sprintf("error: %v", m.err))
+		lines = append(lines, watchErrorStyle.Render("error: "+m.err.Error()))
 	}
 
-	if m.output != "" {
-		lines = append(lines, strings.Split(strings.TrimSuffix(m.output, "\n"), "\n")...)
+	if body := m.renderBody(); body != "" {
+		lines = append(lines, strings.Split(body, "\n")...)
 	}
 
 	if m.height > 0 && len(lines) > m.height {
@@ -105,6 +118,27 @@ func (m watchModel) View() tea.View {
 	return view
 }
 
+// renderBody renders the task rows as a bulleted list.
+func (m watchModel) renderBody() string {
+	if len(m.rows) == 0 {
+		return ""
+	}
+
+	items := make([]any, 0, len(m.rows))
+
+	for _, row := range m.rows {
+		if row.Label == "" {
+			items = append(items, row.Text)
+
+			continue
+		}
+
+		items = append(items, watchLabelStyle.Width(m.labelWidth).Render(row.Label)+" - "+row.Text)
+	}
+
+	return list.New(items...).Enumerator(list.Bullet).String()
+}
+
 // scheduleRefresh returns the command for the next refresh tick.
 func (m watchModel) scheduleRefresh() tea.Cmd {
 	if m.schedule != nil {
@@ -121,9 +155,8 @@ func (m watchModel) load() tea.Cmd {
 			return watchLoadResult{err: err}
 		}
 
-		var rendered strings.Builder
-		tasks.List(&rendered, "tasks", m.config.verbose, m.config.quiet, m.config.grep)
+		rows, labelWidth := taskRows(tasks.Tasks, m.config.verbose, m.config.quiet, m.config.grep)
 
-		return watchLoadResult{output: rendered.String()}
+		return watchLoadResult{rows: rows, labelWidth: labelWidth, openCount: len(tasks.Tasks)}
 	}
 }
