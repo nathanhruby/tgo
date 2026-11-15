@@ -73,7 +73,7 @@ func TestList_ExactOutput(t *testing.T) {
 		{name: "grep keeps padding", tasks: aligned, grep: "third", want: "b   - Third\n"},
 		{name: "grep matches nothing", tasks: aligned, grep: "nope", want: ""},
 		{name: "empty list", tasks: map[string]Task{}, want: ""},
-		{name: "done", tasks: map[string]Task{}, done: map[string]Task{"aaa": {ID: "aaa", Text: "Done task"}}, kind: "done", want: "aaa - Done task\n"},
+		{name: "done", tasks: map[string]Task{}, done: map[string]Task{"aaa": {ID: "aaa", Text: "Done task"}}, kind: "done", want: "a - Done task\n"},
 	}
 
 	for _, tt := range tests {
@@ -98,8 +98,8 @@ Expected: PASS, including the new subtests. A failure here means the fixture exp
 
 ```bash
 git add tasks_test.go
-git commit -m "test: pin exact tgo list output before row refactor"
-mise run pr-title -- "test: pin exact tgo list output before row refactor"
+git commit -m "chore: pin exact tgo list output before row refactor"
+mise run pr-title -- "chore: pin exact tgo list output before row refactor"
 ```
 
 ---
@@ -230,8 +230,8 @@ Expected: no issues. Remove any now-unused helper the compiler or linter flags.
 
 ```bash
 git add tasks.go tasks_test.go
-git commit -m "refactor(tasks): render task rows from one source"
-mise run pr-title -- "refactor(tasks): render task rows from one source"
+git commit -m "chore(tasks): render task rows from one source"
+mise run pr-title -- "chore(tasks): render task rows from one source"
 ```
 
 ---
