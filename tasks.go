@@ -173,6 +173,13 @@ func prefixes(ids []string) map[string]string {
 	return result
 }
 
+// taskRow is one display row: an optional label (shortest unique id prefix, full id when
+// verbose, empty when quiet) and the task text.
+type taskRow struct {
+	Label string
+	Text  string
+}
+
 // TaskList holds open and finished tasks for a named list.
 type TaskList struct {
 	Tasks   map[string]Task // id -> open task
@@ -330,12 +337,24 @@ func buildLabelFn(ids []string, verbose bool) (func(string) string, int) {
 	return func(id string) string { return ps[id] }, maxLen
 }
 
-// printTasks writes each task in ids to w, applying grep filtering and optional quiet/verbose formatting.
-func printTasks(
-	w io.Writer, tasks map[string]Task, ids []string,
-	labelFn func(string) string, maxLen int, quiet bool, grep string,
-) {
+// taskRows returns display rows for tasks in id order, applying quiet/verbose labelling and
+// case-insensitive grep filtering. labelWidth is the widest label across every task, before
+// grep filtering, so filtered output keeps the alignment of the unfiltered list.
+func taskRows(tasks map[string]Task, verbose, quiet bool, grep string) ([]taskRow, int) {
+	if len(tasks) == 0 {
+		return nil, 0
+	}
+
+	ids := make([]string, 0, len(tasks))
+	for id := range tasks {
+		ids = append(ids, id)
+	}
+
+	labelFn, labelWidth := buildLabelFn(ids, verbose)
+
 	sort.Strings(ids)
+
+	var rows []taskRow
 
 	for _, id := range ids {
 		task := tasks[id]
@@ -344,11 +363,19 @@ func printTasks(
 		}
 
 		if quiet {
-			fmt.Fprintln(w, task.Text)
-		} else {
-			fmt.Fprintf(w, "%-*s - %s\n", maxLen, labelFn(id), task.Text)
+			rows = append(rows, taskRow{Text: task.Text})
+
+			continue
 		}
+
+		rows = append(rows, taskRow{Label: labelFn(id), Text: task.Text})
 	}
+
+	if quiet {
+		return rows, 0
+	}
+
+	return rows, labelWidth
 }
 
 // List prints the task list to w.
@@ -362,18 +389,16 @@ func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet bool, grep str
 		tasks = tl.Tasks
 	}
 
-	if len(tasks) == 0 {
-		return
+	rows, width := taskRows(tasks, verbose, quiet, grep)
+	for _, row := range rows {
+		if width == 0 {
+			fmt.Fprintln(w, row.Text)
+
+			continue
+		}
+
+		fmt.Fprintf(w, "%-*s - %s\n", width, row.Label, row.Text)
 	}
-
-	ids := make([]string, 0, len(tasks))
-	for id := range tasks {
-		ids = append(ids, id)
-	}
-
-	labelFn, maxLen := buildLabelFn(ids, verbose)
-
-	printTasks(w, tasks, ids, labelFn, maxLen, quiet, grep)
 }
 
 // sortedTasks returns a slice of tasks from source, sorted by ID.
