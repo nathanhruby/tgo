@@ -616,7 +616,7 @@ func TestWatchModelHeightBudgetShowsOverflowMarker(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 4})
 
 	lines := watchBody(updated.(watchModel).View().Content)
-	want := []string{"• aaa - One", "• bbb - Two", "… +3 more"}
+	want := []string{"• a - One", "• b - Two", "… +3 more"}
 	if len(lines) != 4 || !slices.Equal(lines[:3], want) || !strings.HasPrefix(lines[3], "Sun") {
 		t.Fatalf("lines = %q, want %q then the bar", lines, want)
 	}
