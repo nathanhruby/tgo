@@ -1,5 +1,7 @@
 # Watch Command Implementation Plan
 
+**Superseded in part:** `2026-11-15-watch-lipgloss-design.md` replaces this document's "no styling", "no additional UI dependency", and height-only rendering positions. The rest of this specification still applies.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a full-screen `tgo watch` command that immediately renders open tasks and reloads them every two seconds.

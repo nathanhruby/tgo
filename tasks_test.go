@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -429,6 +430,56 @@ func TestList_Done(t *testing.T) {
 	}
 }
 
+func TestList_ExactOutput(t *testing.T) {
+	longID := "0123456789abcdef0123456789abcdef01234567"
+
+	aligned := map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"aab": {ID: "aab", Text: "Second"},
+		"bbb": {ID: "bbb", Text: "Third"},
+	}
+
+	tests := []struct {
+		name  string
+		tasks map[string]Task
+		done  map[string]Task
+		kind  string
+		verb  bool
+		quiet bool
+		grep  string
+		want  string
+	}{
+		{name: "aligned", tasks: aligned, want: "aaa - First\naab - Second\nb   - Third\n"},
+		{name: "verbose", tasks: map[string]Task{longID: {ID: longID, Text: "Only"}}, verb: true, want: longID + " - Only\n"},
+		{name: "quiet", tasks: aligned, quiet: true, want: "First\nSecond\nThird\n"},
+		{name: "quiet beats verbose", tasks: aligned, quiet: true, verb: true, want: "First\nSecond\nThird\n"},
+		{name: "grep keeps padding", tasks: aligned, grep: "third", want: "b   - Third\n"},
+		{name: "grep matches nothing", tasks: aligned, grep: "nope", want: ""},
+		{name: "empty list", tasks: map[string]Task{}, want: ""},
+		{
+			name:  "done",
+			tasks: map[string]Task{},
+			done:  map[string]Task{"aaa": {ID: "aaa", Text: "Done task"}},
+			kind:  "done",
+			want:  "a - Done task\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tl := &TaskList{Tasks: tt.tasks, Done: tt.done, Name: "tasks", TaskDir: t.TempDir()}
+
+			var buf strings.Builder
+
+			tl.List(&buf, tt.kind, tt.verb, tt.quiet, tt.grep)
+
+			if got := buf.String(); got != tt.want {
+				t.Fatalf("List output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func newTestTaskList() *TaskList {
 	return &TaskList{
 		Tasks:   make(map[string]Task),
@@ -559,5 +610,58 @@ func TestEdit(t *testing.T) {
 	newID := hashText("Buy a lot more beer")
 	if task, ok := tl.Tasks[newID]; !ok || task.Text != "Buy a lot more beer" {
 		t.Errorf("new task not found after Edit: %+v", tl.Tasks)
+	}
+}
+
+func TestTaskRows_LabelsAndWidth(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"aab": {ID: "aab", Text: "Second"},
+		"bbb": {ID: "bbb", Text: "Third"},
+	}, false, false, "")
+
+	want := []taskRow{{Label: "aaa", Text: "First"}, {Label: "aab", Text: "Second"}, {Label: "b", Text: "Third"}}
+	if !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
+	}
+
+	if width != 3 {
+		t.Fatalf("width = %d, want 3", width)
+	}
+}
+
+func TestTaskRows_GrepKeepsPadding(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"aab": {ID: "aab", Text: "Second"},
+		"bbb": {ID: "bbb", Text: "Third"},
+	}, false, false, "THIRD")
+
+	if len(rows) != 1 || rows[0].Label != "b" || rows[0].Text != "Third" {
+		t.Fatalf("rows = %+v, want only the matching row", rows)
+	}
+
+	if width != 3 {
+		t.Fatalf("width = %d, want 3 from all ids, not the filtered subset", width)
+	}
+}
+
+func TestTaskRows_QuietBeatsVerbose(t *testing.T) {
+	rows, width := taskRows(map[string]Task{"aaa": {ID: "aaa", Text: "First"}}, true, true, "")
+
+	if len(rows) != 1 || rows[0].Label != "" || rows[0].Text != "First" {
+		t.Fatalf("rows = %+v, want a text-only row", rows)
+	}
+
+	if width != 0 {
+		t.Fatalf("width = %d, want 0 in quiet mode", width)
+	}
+}
+
+func TestTaskRows_Empty(t *testing.T) {
+	rows, width := taskRows(map[string]Task{}, false, false, "")
+
+	if len(rows) != 0 || width != 0 {
+		t.Fatalf("rows = %+v width = %d, want none", rows, width)
 	}
 }

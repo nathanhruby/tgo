@@ -3,6 +3,10 @@
 **Date:** 2026-09-20
 **Status:** Approved
 
+**Superseded in part:** `2026-11-15-watch-lipgloss-design.md` replaces this document's
+"no styling", "no additional UI dependency", and height-only rendering positions. The rest of
+this specification still applies.
+
 ## Goal
 
 Add `tgo watch`, a full-screen terminal command that continuously displays the selected open-task list and refreshes it every two seconds.
