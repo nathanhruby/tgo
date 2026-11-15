@@ -64,9 +64,14 @@ func newWatchModel(config watchConfig) watchModel {
 		now:    now,
 		clock:  now(),
 		clockTick: func(d time.Duration) tea.Cmd {
-			return tea.Tick(d, func(time.Time) tea.Msg { return watchClockMsg{} })
+			return defaultClockTick(d)
 		},
 	}
+}
+
+// defaultClockTick fires on system-clock boundaries so the displayed second never drifts or skips.
+func defaultClockTick(d time.Duration) tea.Cmd {
+	return tea.Every(d, func(time.Time) tea.Msg { return watchClockMsg{} })
 }
 
 func (m watchModel) Init() tea.Cmd {
@@ -100,7 +105,7 @@ func (m watchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case watchClockMsg:
-		m.clock = m.now()
+		m.clock = m.currentTime()
 
 		return m, m.nextClockTick()
 	case watchTimerMsg:
@@ -194,16 +199,37 @@ func (m watchModel) renderBody() string {
 	return list.New(items...).Enumerator(list.Bullet).String()
 }
 
+// currentTime reads the injected clock, falling back to time.Now.
+func (m watchModel) currentTime() time.Time {
+	if m.now != nil {
+		return m.now()
+	}
+
+	return time.Now()
+}
+
 // nextClockTick returns the command for the next clock tick.
 func (m watchModel) nextClockTick() tea.Cmd {
-	return m.clockTick(watchClockInterval)
+	if m.clockTick != nil {
+		return m.clockTick(watchClockInterval)
+	}
+
+	return defaultClockTick(watchClockInterval)
 }
 
 // statusBar renders the reverse-video bar: the clock on the left and the list summary on the right.
 func (m watchModel) statusBar() string {
-	left := m.clock.Format("Mon Jan 2 2006 · 15:04:05")
+	var left string
+	if !m.clock.IsZero() {
+		left = m.clock.Format("Mon Jan 2 2006 · 15:04:05")
+	}
+
 	right := fmt.Sprintf("%s · %d open · q to quit", m.config.listName, m.openCount)
 	bar := lipgloss.NewStyle().Reverse(true)
+
+	if left == "" {
+		return bar.Render(fitStatusRight(right, m.width))
+	}
 
 	switch {
 	case m.width <= 0:
@@ -214,6 +240,21 @@ func (m watchModel) statusBar() string {
 		gap := strings.Repeat(" ", m.width-lipgloss.Width(left)-lipgloss.Width(right))
 
 		return bar.Width(m.width).Render(left + gap + right)
+	}
+}
+
+// fitStatusRight right-aligns the summary within width, truncating it when it cannot fit.
+// An unknown width leaves it as is.
+func fitStatusRight(right string, width int) string {
+	switch {
+	case width <= 0:
+		return right
+	case lipgloss.Width(right) > width:
+		cut := ansi.Truncate(right, width, "…")
+
+		return cut + strings.Repeat(" ", width-lipgloss.Width(cut))
+	default:
+		return strings.Repeat(" ", width-lipgloss.Width(right)) + right
 	}
 }
 

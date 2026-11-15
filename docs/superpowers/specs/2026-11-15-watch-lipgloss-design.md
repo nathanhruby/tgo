@@ -1,7 +1,7 @@
 # Watch Mode: Lipgloss List and Status Bar
 
 **Date:** 2026-11-15
-**Status:** Draft — awaiting approval
+**Status:** Approved
 **Supersedes in part:** `2026-09-20-watch-command-design.md` (its "no styling", "no extra UI
 dependency", and "no width handling" positions are replaced by this document; everything else
 in that spec still holds).
@@ -40,7 +40,8 @@ at and how do I leave" without a help screen.
 - A bar that pushes the list off a short terminal, or an overflow marker that disappears because
   the bar took its row.
 - Drift between `tgo list` and the watch body: same label, same text, same order, only styling
-  and the bullet may differ.
+  and the bullet may differ (the one exception is tabs in task text, which expand to four spaces
+  in watch so width math stays correct).
 - Hiding a load error behind the bar.
 - Tests that assert ANSI bytes or loosen to substring checks to accommodate styling.
 
@@ -137,7 +138,13 @@ Sun Nov 15 2026 · 14:03:22                    tasks · 3 open · q to quit
   below the tasks, so a two-task list in a forty-row terminal shows the bar on row 40. An empty
   list is therefore a full-height blank body with the bar at the bottom, not a one-line view. When
   the height is unknown there is nothing to pad against, so the bar follows the content directly.
+- A zero-value clock renders an empty left side, so the bar is just the right side with no date
+  text and no leading space when the width is unknown; with a known width the right side is
+  right-aligned to exactly `width` and truncated with an ellipsis if it cannot fit.
 - Body rows wider than `width` are truncated with `ansi.Truncate(line, width, "…")`.
+- Tabs in task text expand to four spaces inside watch, because Lipgloss list items do so and the
+  width math must count what is drawn. `tgo list` still prints raw tabs, so this is the one
+  deliberate deviation from list/watch byte parity.
 
 **Precedence when the terminal is too short for everything.** The bar normally wins the last row,
 but it yields to a load error, because an error the user cannot see is worse than a missing clock.
@@ -159,7 +166,11 @@ the first thing to go when the body budget is exhausted; the error is the last. 
 - New `watchClockInterval = time.Second` and `watchClockMsg struct{}`.
 - `watchModel` gains `clock time.Time` (the time to display), `now func() time.Time`, and
   `clockTick func(time.Duration) tea.Cmd`. `newWatchModel` seeds `now` and `clockTick` with
-  `time.Now` and `tea.Tick`, and initializes `clock` from `now()`.
+  `time.Now` and a `tea.Every`-based tick, and initializes `clock` from `now()`. The default tick
+  uses `tea.Every` rather than `tea.Tick` because it aligns to the system clock: `tea.Tick` counts
+  one second from when it is scheduled, so it drifts and can skip a displayed second. The refresh
+  timer stays on `tea.Tick` at two seconds. A nil `now` or `clockTick` falls back to `time.Now` and
+  the default tick, as `schedule` falls back to `tea.Tick`, so a zero-value model never panics.
 - `Init` returns `tea.Batch(m.load(), m.nextClockTick())`.
 - `watchClockMsg` sets `clock = now()` and returns the next clock tick. It never touches disk and
   never disturbs the refresh cycle, so an in-flight load is unaffected.

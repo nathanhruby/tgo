@@ -214,6 +214,12 @@ func TestWatchModelPinsStatusBarToLastRow(t *testing.T) {
 		t.Fatalf("last line = %q, want the bar", lines[5])
 	}
 
+	for i, want := range []string{"• a - First", "• b - Second"} {
+		if !strings.HasPrefix(lines[i], "• ") || strings.TrimSpace(lines[i]) != want {
+			t.Fatalf("line %d = %q, want the bulleted task %q", i, lines[i], want)
+		}
+	}
+
 	for i := 2; i < 5; i++ {
 		if strings.TrimSpace(lines[i]) != "" {
 			t.Fatalf("line %d = %q, want blank padding", i, lines[i])
@@ -291,6 +297,10 @@ func TestWatchModelTruncatesBarAndBodyToWidth(t *testing.T) {
 			}
 		}
 
+		if got := lipgloss.Width(lines[len(lines)-1]); got != width {
+			t.Fatalf("width %d: bar is %d cells wide, want exactly %d: %q", width, got, width, lines[len(lines)-1])
+		}
+
 		if width != 20 {
 			continue
 		}
@@ -313,6 +323,12 @@ func TestWatchModelEmptyListShowsBlankBodyAndBar(t *testing.T) {
 	lines := watchBody(updated.(watchModel).View().Content)
 	if len(lines) != 4 || !strings.HasPrefix(lines[3], "Sun") {
 		t.Fatalf("lines = %q, want 3 blank rows and the bar", lines)
+	}
+
+	for i, line := range lines[:3] {
+		if strings.TrimSpace(line) != "" {
+			t.Fatalf("line %d = %q, want a blank body row", i, line)
+		}
 	}
 }
 
@@ -720,6 +736,46 @@ func TestWatchModelZeroValueSchedulesRefresh(t *testing.T) {
 
 	if _, cmd := model.Update(watchLoadResult{rows: []taskRow{{Text: "text"}}}); cmd == nil {
 		t.Fatal("zero-value model did not schedule a refresh")
+	}
+}
+
+func TestWatchModelZeroValueClockRendersNoDate(t *testing.T) {
+	model := watchModel{width: 80, config: watchConfig{listName: "tasks"}}
+
+	lines := watchBody(model.View().Content)
+	bar := lines[len(lines)-1]
+
+	if strings.Contains(bar, "0001") || strings.Contains(bar, "Mon Jan") {
+		t.Fatalf("bar = %q, want no date text for a zero clock", bar)
+	}
+
+	if want := "tasks · 0 open · q to quit"; !strings.HasSuffix(bar, want) {
+		t.Fatalf("bar = %q, want suffix %q", bar, want)
+	}
+
+	if got := lipgloss.Width(bar); got != 80 {
+		t.Fatalf("bar width = %d, want 80: %q", got, bar)
+	}
+}
+
+func TestWatchModelZeroValueClockIsSafe(t *testing.T) {
+	var model watchModel
+
+	if model.nextClockTick() == nil {
+		t.Fatal("zero-value model returned no clock tick")
+	}
+
+	if model.Init() == nil {
+		t.Fatal("zero-value model returned no Init command")
+	}
+
+	updated, cmd := model.Update(watchClockMsg{})
+	if cmd == nil {
+		t.Fatal("clock message scheduled nothing")
+	}
+
+	if updated.(watchModel).clock.IsZero() {
+		t.Fatal("clock message left the clock zero")
 	}
 }
 
