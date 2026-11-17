@@ -3,6 +3,14 @@
   "labels": ["dependencies", "renovatebot"],
   "packageRules": [
     {
+      "description": "Group jdx updates and run them every other Wednesday",
+      "groupName": "jdx",
+      "matchPackageNames": ["jdx/**", "github.com/jdx/**"],
+      "schedule": ["* * 8-14,22-28 * 3"],
+      "automergeSchedule": ["* * 8-14,22-28 * 3"],
+      "separateMajorMinor": false
+    },
+    {
       "automerge": true,
       "matchUpdateTypes": ["patch", "pin", "digest", "minor"]
     },
