@@ -9,7 +9,7 @@ Group every Renovate update from the `jdx` GitHub organization into one pull req
 
 ## Behavior
 
-- A `packageRules` entry matches `jdx/**` (GitHub Actions such as `jdx/mise-action`) and `github.com/jdx/**` (Go modules), sets `groupName` to `jdx`, and sets `separateMajorMinor` to `false` so major updates join the same group.
+- A `packageRules` entry matches `jdx/**` (GitHub Actions such as `jdx/mise-action`), `github.com/jdx/**` (Go modules), and `hk` (the `jdx/hk` mise tool, whose Renovate package name is `hk`). It sets `groupName` to `jdx` and sets `separateMajorMinor` to `false` so major updates join the same group.
 - Both `schedule` and `automergeSchedule` use `* * 8-14,22-28 * 3` with the existing `America/Los_Angeles` timezone. Renovate requires both the day of month and day of week to match, so this fires on the second and fourth Wednesday of each month.
 - Existing automerge policy still applies: minor, patch, pin, and digest updates automerge, while major updates request review.
 - `platformAutomerge` stays `true`. Renovate only creates these pull requests on the scheduled Wednesday, so the platform automerge is enqueued that day.
