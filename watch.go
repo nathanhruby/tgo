@@ -27,6 +27,7 @@ type watchConfig struct {
 	grep     string
 	verbose  bool
 	quiet    bool
+	group    bool
 }
 
 type watchModel struct {
@@ -144,13 +145,10 @@ func (m watchModel) screenLines() []string {
 		errLines = []string{watchErrorStyle.Render("error: " + m.err.Error())}
 	}
 
-	var tasks []string
-	if body := m.renderBody(); body != "" {
-		tasks = strings.Split(body, "\n")
-	}
+	body := m.renderBody()
 
 	if m.height <= 0 {
-		return append(append(errLines, tasks...), m.statusBar())
+		return append(append(errLines, textLines(body)...), m.statusBar())
 	}
 
 	budget := m.height - 1
@@ -164,11 +162,8 @@ func (m watchModel) screenLines() []string {
 
 	lines := errLines
 
-	if avail := budget - len(errLines); len(tasks) <= avail {
-		lines = append(lines, tasks...)
-	} else if avail > 0 {
-		lines = append(lines, tasks[:avail-1]...)
-		lines = append(lines, fmt.Sprintf("… +%d more", len(tasks)-(avail-1)))
+	if avail := budget - len(errLines); avail > 0 {
+		lines = append(lines, fitBody(body, avail)...)
 	}
 
 	for len(lines) < budget {
@@ -178,15 +173,96 @@ func (m watchModel) screenLines() []string {
 	return append(lines, m.statusBar())
 }
 
-// renderBody renders the task rows as a bulleted list.
-func (m watchModel) renderBody() string {
-	if len(m.rows) == 0 {
-		return ""
+// fitBody fits body into avail rows. When it overflows, the last row becomes a marker
+// counting the hidden task rows, and a group heading is never left without its tasks.
+func fitBody(body []watchLine, avail int) []string {
+	if len(body) <= avail {
+		return textLines(body)
 	}
 
-	items := make([]any, 0, len(m.rows))
+	shown := body[:avail-1]
 
-	for _, row := range m.rows {
+	hidden := 0
+
+	for _, line := range body[avail-1:] {
+		if !line.heading {
+			hidden++
+		}
+	}
+
+	if len(shown) > 0 && shown[len(shown)-1].heading {
+		shown = shown[:len(shown)-1]
+	}
+
+	return append(textLines(shown), fmt.Sprintf("… +%d more", hidden))
+}
+
+// watchLine is one body row; heading marks group emoji lines.
+type watchLine struct {
+	text    string
+	heading bool
+}
+
+// textLines projects body rows to their text.
+func textLines(body []watchLine) []string {
+	lines := make([]string, 0, len(body))
+
+	for _, line := range body {
+		lines = append(lines, line.text)
+	}
+
+	return lines
+}
+
+// renderBody renders the task rows as bulleted lists, one nested list per emoji group.
+func (m watchModel) renderBody() []watchLine {
+	var lines []watchLine
+
+	for start := 0; start < len(m.rows); {
+		end := start + 1
+		for end < len(m.rows) && m.rows[end].Group == m.rows[start].Group {
+			end++
+		}
+
+		lines = append(lines, m.renderBlock(m.rows[start:end])...)
+		start = end
+	}
+
+	return lines
+}
+
+// renderBlock renders consecutive rows that share a group.
+func (m watchModel) renderBlock(block []taskRow) []watchLine {
+	if block[0].Group == "" {
+		var lines []watchLine
+
+		for _, line := range strings.Split(list.New(m.itemStrings(block)...).Enumerator(list.Bullet).String(), "\n") {
+			lines = append(lines, watchLine{text: line})
+		}
+
+		return lines
+	}
+
+	nested := list.New(m.itemStrings(block)...)
+	rendered := list.New(block[0].Group, nested).
+		Enumerator(func(list.Items, int) string { return "" }).
+		EnumeratorStyle(lipgloss.NewStyle()).
+		String()
+
+	var lines []watchLine
+
+	for i, line := range strings.Split(rendered, "\n") {
+		lines = append(lines, watchLine{text: line, heading: i == 0})
+	}
+
+	return lines
+}
+
+// itemStrings renders the label/text cells for a block of rows.
+func (m watchModel) itemStrings(rows []taskRow) []any {
+	items := make([]any, 0, len(rows))
+
+	for _, row := range rows {
 		if row.Label == "" {
 			items = append(items, row.Text)
 
@@ -196,7 +272,7 @@ func (m watchModel) renderBody() string {
 		items = append(items, watchLabelStyle.Width(m.labelWidth).Render(row.Label)+" - "+row.Text)
 	}
 
-	return list.New(items...).Enumerator(list.Bullet).String()
+	return items
 }
 
 // currentTime reads the injected clock, falling back to time.Now.
@@ -274,7 +350,7 @@ func (m watchModel) load() tea.Cmd {
 			return watchLoadResult{err: err}
 		}
 
-		rows, labelWidth := taskRows(tasks.Tasks, m.config.verbose, m.config.quiet, false, m.config.grep)
+		rows, labelWidth := taskRows(tasks.Tasks, m.config.verbose, m.config.quiet, m.config.group, m.config.grep)
 
 		return watchLoadResult{rows: rows, labelWidth: labelWidth, openCount: len(tasks.Tasks)}
 	}
