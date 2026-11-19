@@ -251,6 +251,7 @@ func prefixes(ids []string) map[string]string {
 // verbose, empty when quiet) and the task text.
 type taskRow struct {
 	Label string
+	Group string
 	Text  string
 }
 
@@ -411,10 +412,45 @@ func buildLabelFn(ids []string, verbose bool) (func(string) string, int) {
 	return func(id string) string { return ps[id] }, maxLen
 }
 
+// splitGroups splits each task's leading emoji group from its display text and sorts ids by
+// group key. Tasks without a group sort last; ties are broken by id.
+func splitGroups(ids []string, tasks map[string]Task) (map[string]string, map[string]string) {
+	keys := make(map[string]string, len(ids))
+	display := make(map[string]string, len(ids))
+
+	for _, id := range ids {
+		keys[id], display[id] = splitEmojiGroup(tasks[id].Text)
+	}
+
+	sort.Slice(ids, func(i, j int) bool {
+		gi, gj := keys[ids[i]], keys[ids[j]]
+
+		switch {
+		case gi == gj:
+			return ids[i] < ids[j]
+		case gi == "":
+			return false
+		case gj == "":
+			return true
+		default:
+			return gi < gj
+		}
+	})
+
+	return keys, display
+}
+
+// matchesGrep reports whether text contains grep, ignoring case. An empty grep matches all text.
+func matchesGrep(text, grep string) bool {
+	return grep == "" || strings.Contains(strings.ToLower(text), strings.ToLower(grep))
+}
+
 // taskRows returns display rows for tasks in id order, applying quiet/verbose labelling and
 // case-insensitive grep filtering. labelWidth is the widest label across every task, before
 // grep filtering, so filtered output keeps the alignment of the unfiltered list.
-func taskRows(tasks map[string]Task, verbose, quiet bool, grep string) ([]taskRow, int) {
+// When group is true, rows are ordered by leading emoji group (ungrouped tasks last) and
+// each row carries its group key and the text with the group removed.
+func taskRows(tasks map[string]Task, verbose, quiet, group bool, grep string) ([]taskRow, int) {
 	if len(tasks) == 0 {
 		return nil, 0
 	}
@@ -426,23 +462,32 @@ func taskRows(tasks map[string]Task, verbose, quiet bool, grep string) ([]taskRo
 
 	labelFn, labelWidth := buildLabelFn(ids, verbose)
 
-	sort.Strings(ids)
+	var keys, display map[string]string
+
+	if group {
+		keys, display = splitGroups(ids, tasks)
+	} else {
+		sort.Strings(ids)
+	}
 
 	var rows []taskRow
 
 	for _, id := range ids {
 		task := tasks[id]
-		if grep != "" && !strings.Contains(strings.ToLower(task.Text), strings.ToLower(grep)) {
+		if !matchesGrep(task.Text, grep) {
 			continue
 		}
 
-		if quiet {
-			rows = append(rows, taskRow{Text: task.Text})
-
-			continue
+		row := taskRow{Text: task.Text}
+		if group {
+			row.Group, row.Text = keys[id], display[id]
 		}
 
-		rows = append(rows, taskRow{Label: labelFn(id), Text: task.Text})
+		if !quiet {
+			row.Label = labelFn(id)
+		}
+
+		rows = append(rows, row)
 	}
 
 	if quiet {
@@ -463,7 +508,7 @@ func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet bool, grep str
 		tasks = tl.Tasks
 	}
 
-	rows, width := taskRows(tasks, verbose, quiet, grep)
+	rows, width := taskRows(tasks, verbose, quiet, false, grep)
 	for _, row := range rows {
 		if width == 0 {
 			fmt.Fprintln(w, row.Text)

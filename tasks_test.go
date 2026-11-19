@@ -618,7 +618,7 @@ func TestTaskRows_LabelsAndWidth(t *testing.T) {
 		"aaa": {ID: "aaa", Text: "First"},
 		"aab": {ID: "aab", Text: "Second"},
 		"bbb": {ID: "bbb", Text: "Third"},
-	}, false, false, "")
+	}, false, false, false, "")
 
 	want := []taskRow{{Label: "aaa", Text: "First"}, {Label: "aab", Text: "Second"}, {Label: "b", Text: "Third"}}
 	if !slices.Equal(rows, want) {
@@ -635,7 +635,7 @@ func TestTaskRows_GrepKeepsPadding(t *testing.T) {
 		"aaa": {ID: "aaa", Text: "First"},
 		"aab": {ID: "aab", Text: "Second"},
 		"bbb": {ID: "bbb", Text: "Third"},
-	}, false, false, "THIRD")
+	}, false, false, false, "THIRD")
 
 	if len(rows) != 1 || rows[0].Label != "b" || rows[0].Text != "Third" {
 		t.Fatalf("rows = %+v, want only the matching row", rows)
@@ -647,7 +647,7 @@ func TestTaskRows_GrepKeepsPadding(t *testing.T) {
 }
 
 func TestTaskRows_QuietBeatsVerbose(t *testing.T) {
-	rows, width := taskRows(map[string]Task{"aaa": {ID: "aaa", Text: "First"}}, true, true, "")
+	rows, width := taskRows(map[string]Task{"aaa": {ID: "aaa", Text: "First"}}, true, true, false, "")
 
 	if len(rows) != 1 || rows[0].Label != "" || rows[0].Text != "First" {
 		t.Fatalf("rows = %+v, want a text-only row", rows)
@@ -659,7 +659,7 @@ func TestTaskRows_QuietBeatsVerbose(t *testing.T) {
 }
 
 func TestTaskRows_Empty(t *testing.T) {
-	rows, width := taskRows(map[string]Task{}, false, false, "")
+	rows, width := taskRows(map[string]Task{}, false, false, false, "")
 
 	if len(rows) != 0 || width != 0 {
 		t.Fatalf("rows = %+v width = %d, want none", rows, width)
@@ -691,5 +691,72 @@ func TestSplitEmojiGroup(t *testing.T) {
 				t.Fatalf("splitEmojiGroup(%q) = (%q, %q), want (%q, %q)", tt.text, key, rest, tt.key, tt.rest)
 			}
 		})
+	}
+}
+
+func TestTaskRows_GroupedOrder(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"c3": {ID: "c3", Text: "No emoji"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+		"e5": {ID: "e5", Text: "🏃 Run"},
+	}, false, false, true, "")
+
+	want := []taskRow{
+		{Label: "b", Group: "🍕", Text: "Pizza"},
+		{Label: "d", Group: "🍕", Text: "Pasta"},
+		{Label: "e", Group: "🏃", Text: "Run"},
+		{Label: "a", Group: "🚀", Text: "Launch"},
+		{Label: "c", Text: "No emoji"},
+	}
+
+	if !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
+	}
+
+	if width != 1 {
+		t.Fatalf("width = %d, want 1 from all ids", width)
+	}
+}
+
+func TestTaskRows_GroupedGrepMatchesStoredText(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+	}, false, false, true, "🍕")
+
+	want := []taskRow{
+		{Label: "b", Group: "🍕", Text: "Pizza"},
+		{Label: "d", Group: "🍕", Text: "Pasta"},
+	}
+
+	if !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
+	}
+
+	if width != 1 {
+		t.Fatalf("width = %d, want 1 from all ids", width)
+	}
+}
+
+func TestTaskRows_GroupedQuiet(t *testing.T) {
+	rows, width := taskRows(map[string]Task{"b2": {ID: "b2", Text: "🍕 Pizza"}}, true, true, true, "")
+
+	if len(rows) != 1 || rows[0].Label != "" || rows[0].Group != "🍕" || rows[0].Text != "Pizza" {
+		t.Fatalf("rows = %+v, want a text-only grouped row", rows)
+	}
+
+	if width != 0 {
+		t.Fatalf("width = %d, want 0 in quiet mode", width)
+	}
+}
+
+func TestTaskRows_GroupedEmojiOnlyKeepsText(t *testing.T) {
+	rows, _ := taskRows(map[string]Task{"b2": {ID: "b2", Text: "🍕"}}, false, false, true, "")
+
+	if len(rows) != 1 || rows[0].Group != "🍕" || rows[0].Text != "🍕" {
+		t.Fatalf("rows = %+v, want the emoji kept as display text", rows)
 	}
 }

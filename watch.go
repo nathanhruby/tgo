@@ -274,7 +274,7 @@ func (m watchModel) load() tea.Cmd {
 			return watchLoadResult{err: err}
 		}
 
-		rows, labelWidth := taskRows(tasks.Tasks, m.config.verbose, m.config.quiet, m.config.grep)
+		rows, labelWidth := taskRows(tasks.Tasks, m.config.verbose, m.config.quiet, false, m.config.grep)
 
 		return watchLoadResult{rows: rows, labelWidth: labelWidth, openCount: len(tasks.Tasks)}
 	}
