@@ -84,6 +84,7 @@ func watchConfigFromCommand(cmd *cli.Command) watchConfig {
 		grep:     cmd.String("grep"),
 		verbose:  cmd.Bool("verbose"),
 		quiet:    cmd.Bool("quiet"),
+		group:    cmd.Bool("group"),
 	}
 }
 
@@ -93,7 +94,7 @@ func listAction(_ context.Context, cmd *cli.Command) error {
 		return handleTaskError(err)
 	}
 
-	tl.List(os.Stdout, "tasks", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.String("grep"))
+	tl.List(os.Stdout, "tasks", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.Bool("group"), cmd.String("grep"))
 
 	return nil
 }
@@ -104,7 +105,7 @@ func doneAction(_ context.Context, cmd *cli.Command) error {
 		return handleTaskError(err)
 	}
 
-	tl.List(os.Stdout, "done", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.String("grep"))
+	tl.List(os.Stdout, "done", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.Bool("group"), cmd.String("grep"))
 
 	return nil
 }
@@ -263,6 +264,11 @@ func listFlags() []cli.Flag {
 			Name:    "quiet",
 			Aliases: []string{"q"},
 			Usage:   "suppress task IDs in output",
+		},
+		&cli.BoolFlag{
+			Name:    "group",
+			Aliases: []string{"G"},
+			Usage:   "group tasks by leading emoji",
 		},
 	}
 }

@@ -46,6 +46,10 @@ tgo list
 tgo watch
 tgo watch --grep apartment
 
+# Group tasks by their leading emoji
+tgo list --group
+tgo watch -G
+
 # Finish a task
 tgo finish 9
 

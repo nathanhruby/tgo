@@ -362,7 +362,7 @@ func TestList_PrintsTasksToStdout(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, false, "")
+	tl.List(&buf, "tasks", false, false, false, "")
 	output := buf.String()
 
 	if !strings.Contains(output, "First task") {
@@ -381,7 +381,7 @@ func TestList_Grep(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, false, "groceries")
+	tl.List(&buf, "tasks", false, false, false, "groceries")
 	output := buf.String()
 
 	if !strings.Contains(output, "Buy groceries") {
@@ -399,7 +399,7 @@ func TestList_Quiet(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, true, "")
+	tl.List(&buf, "tasks", false, true, false, "")
 	output := buf.String()
 
 	if strings.Contains(output, " - ") {
@@ -418,7 +418,7 @@ func TestList_Done(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "done", false, false, "")
+	tl.List(&buf, "done", false, false, false, "")
 	output := buf.String()
 
 	if strings.Contains(output, "Open task") {
@@ -471,12 +471,101 @@ func TestList_ExactOutput(t *testing.T) {
 
 			var buf strings.Builder
 
-			tl.List(&buf, tt.kind, tt.verb, tt.quiet, tt.grep)
+			tl.List(&buf, tt.kind, tt.verb, tt.quiet, false, tt.grep)
 
 			if got := buf.String(); got != tt.want {
 				t.Fatalf("List output = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestList_GroupedExactOutput(t *testing.T) {
+	tasks := map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"c3": {ID: "c3", Text: "No emoji"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+		"e5": {ID: "e5", Text: "🏃 Run"},
+	}
+
+	tests := []struct {
+		name  string
+		quiet bool
+		grep  string
+		want  string
+	}{
+		{
+			name: "grouped",
+			want: "🍕\n  b - Pizza\n  d - Pasta\n\n🏃\n  e - Run\n\n🚀\n  a - Launch\n\nc - No emoji\n",
+		},
+		{
+			name:  "quiet",
+			quiet: true,
+			want:  "🍕\n  Pizza\n  Pasta\n\n🏃\n  Run\n\n🚀\n  Launch\n\nNo emoji\n",
+		},
+		{
+			name: "grep on emoji",
+			grep: "🍕",
+			want: "🍕\n  b - Pizza\n  d - Pasta\n",
+		},
+		{
+			name: "grep inside group",
+			grep: "pasta",
+			want: "🍕\n  d - Pasta\n",
+		},
+		{
+			name: "grep matches nothing",
+			grep: "nope",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tl := &TaskList{Tasks: tasks, Done: map[string]Task{}, Name: "tasks", TaskDir: t.TempDir()}
+
+			var buf strings.Builder
+
+			tl.List(&buf, "tasks", false, tt.quiet, true, tt.grep)
+
+			if got := buf.String(); got != tt.want {
+				t.Fatalf("List output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestList_GroupedWithoutEmojiMatchesUngrouped(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "First"}
+	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Second"}
+
+	var flat, grouped strings.Builder
+
+	tl.List(&flat, "tasks", false, false, false, "")
+	tl.List(&grouped, "tasks", false, false, true, "")
+
+	if flat.String() != grouped.String() {
+		t.Fatalf("grouped output = %q, want byte-identical to %q", grouped.String(), flat.String())
+	}
+}
+
+func TestList_GroupedVerboseAndDone(t *testing.T) {
+	longID := "0123456789abcdef0123456789abcdef01234567"
+	tl := &TaskList{
+		Tasks:   map[string]Task{},
+		Done:    map[string]Task{longID: {ID: longID, Text: "🍕 Done task"}},
+		Name:    "tasks",
+		TaskDir: t.TempDir(),
+	}
+
+	var buf strings.Builder
+
+	tl.List(&buf, "done", true, false, true, "")
+
+	if want := "🍕\n  " + longID + " - Done task\n"; buf.String() != want {
+		t.Fatalf("List output = %q, want %q", buf.String(), want)
 	}
 }
 
@@ -618,7 +707,7 @@ func TestTaskRows_LabelsAndWidth(t *testing.T) {
 		"aaa": {ID: "aaa", Text: "First"},
 		"aab": {ID: "aab", Text: "Second"},
 		"bbb": {ID: "bbb", Text: "Third"},
-	}, false, false, "")
+	}, false, false, false, "")
 
 	want := []taskRow{{Label: "aaa", Text: "First"}, {Label: "aab", Text: "Second"}, {Label: "b", Text: "Third"}}
 	if !slices.Equal(rows, want) {
@@ -635,7 +724,7 @@ func TestTaskRows_GrepKeepsPadding(t *testing.T) {
 		"aaa": {ID: "aaa", Text: "First"},
 		"aab": {ID: "aab", Text: "Second"},
 		"bbb": {ID: "bbb", Text: "Third"},
-	}, false, false, "THIRD")
+	}, false, false, false, "THIRD")
 
 	if len(rows) != 1 || rows[0].Label != "b" || rows[0].Text != "Third" {
 		t.Fatalf("rows = %+v, want only the matching row", rows)
@@ -647,7 +736,7 @@ func TestTaskRows_GrepKeepsPadding(t *testing.T) {
 }
 
 func TestTaskRows_QuietBeatsVerbose(t *testing.T) {
-	rows, width := taskRows(map[string]Task{"aaa": {ID: "aaa", Text: "First"}}, true, true, "")
+	rows, width := taskRows(map[string]Task{"aaa": {ID: "aaa", Text: "First"}}, true, true, false, "")
 
 	if len(rows) != 1 || rows[0].Label != "" || rows[0].Text != "First" {
 		t.Fatalf("rows = %+v, want a text-only row", rows)
@@ -659,9 +748,104 @@ func TestTaskRows_QuietBeatsVerbose(t *testing.T) {
 }
 
 func TestTaskRows_Empty(t *testing.T) {
-	rows, width := taskRows(map[string]Task{}, false, false, "")
+	rows, width := taskRows(map[string]Task{}, false, false, false, "")
 
 	if len(rows) != 0 || width != 0 {
 		t.Fatalf("rows = %+v width = %d, want none", rows, width)
+	}
+}
+
+func TestSplitEmojiGroup(t *testing.T) {
+	tests := []struct{ name, text, key, rest string }{
+		{"no emoji", "Buy milk", "", "Buy milk"},
+		{"one emoji", "🍕 Order pizza", "🍕", "Order pizza"},
+		{"adjacent emoji", "🍕🚀 Pizza launch", "🍕🚀", "Pizza launch"},
+		{"space ends run", "🍕 🚀 Pizza", "🍕", "🚀 Pizza"},
+		{"ascii ends run", "🍕Pizza", "🍕", "Pizza"},
+		{"cjk ends run", "🍕寿司", "🍕", "寿司"},
+		{"zwj family", "👨‍👩‍👧 Family", "👨‍👩‍👧", "Family"},
+		{"flag", "🇺🇸 Vote", "🇺🇸", "Vote"},
+		{"skin tone", "👍🏽 Nice", "👍🏽", "Nice"},
+		{"keycap stays ungrouped", "1️⃣ First", "", "1️⃣ First"},
+		{"emoji only", "🍕", "🍕", "🍕"},
+		{"emoji and space only", "🍕 ", "🍕", "🍕 "},
+		{"variation selector", "©️ Legal", "©️", "Legal"},
+		{"latin letter", "éclair", "", "éclair"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, rest := splitEmojiGroup(tt.text)
+			if key != tt.key || rest != tt.rest {
+				t.Fatalf("splitEmojiGroup(%q) = (%q, %q), want (%q, %q)", tt.text, key, rest, tt.key, tt.rest)
+			}
+		})
+	}
+}
+
+func TestTaskRows_GroupedOrder(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"c3": {ID: "c3", Text: "No emoji"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+		"e5": {ID: "e5", Text: "🏃 Run"},
+	}, false, false, true, "")
+
+	want := []taskRow{
+		{Label: "b", Group: "🍕", Text: "Pizza"},
+		{Label: "d", Group: "🍕", Text: "Pasta"},
+		{Label: "e", Group: "🏃", Text: "Run"},
+		{Label: "a", Group: "🚀", Text: "Launch"},
+		{Label: "c", Text: "No emoji"},
+	}
+
+	if !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
+	}
+
+	if width != 1 {
+		t.Fatalf("width = %d, want 1 from all ids", width)
+	}
+}
+
+func TestTaskRows_GroupedGrepMatchesStoredText(t *testing.T) {
+	rows, width := taskRows(map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+	}, false, false, true, "🍕")
+
+	want := []taskRow{
+		{Label: "b", Group: "🍕", Text: "Pizza"},
+		{Label: "d", Group: "🍕", Text: "Pasta"},
+	}
+
+	if !slices.Equal(rows, want) {
+		t.Fatalf("rows = %+v, want %+v", rows, want)
+	}
+
+	if width != 1 {
+		t.Fatalf("width = %d, want 1 from all ids", width)
+	}
+}
+
+func TestTaskRows_GroupedQuiet(t *testing.T) {
+	rows, width := taskRows(map[string]Task{"b2": {ID: "b2", Text: "🍕 Pizza"}}, true, true, true, "")
+
+	if len(rows) != 1 || rows[0].Label != "" || rows[0].Group != "🍕" || rows[0].Text != "Pizza" {
+		t.Fatalf("rows = %+v, want a text-only grouped row", rows)
+	}
+
+	if width != 0 {
+		t.Fatalf("width = %d, want 0 in quiet mode", width)
+	}
+}
+
+func TestTaskRows_GroupedEmojiOnlyKeepsText(t *testing.T) {
+	rows, _ := taskRows(map[string]Task{"b2": {ID: "b2", Text: "🍕"}}, false, false, true, "")
+
+	if len(rows) != 1 || rows[0].Group != "🍕" || rows[0].Text != "🍕" {
+		t.Fatalf("rows = %+v, want the emoji kept as display text", rows)
 	}
 }

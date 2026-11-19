@@ -454,7 +454,7 @@ func renderTaskList(t *testing.T, config watchConfig) string {
 	}
 
 	var rendered strings.Builder
-	tl.List(&rendered, "tasks", config.verbose, config.quiet, config.grep)
+	tl.List(&rendered, "tasks", config.verbose, config.quiet, config.group, config.grep)
 
 	return rendered.String()
 }
@@ -844,5 +844,118 @@ func TestWatchModelQuitsOnQAndCtrlC(t *testing.T) {
 		if _, ok := cmd().(tea.QuitMsg); !ok {
 			t.Fatalf("%s did not produce a quit message", name)
 		}
+	}
+}
+
+func TestWatchModelGroupsTasksIntoNestedList(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"c3": {ID: "c3", Text: "No emoji"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+		"e5": {ID: "e5", Text: "🏃 Run"},
+	})
+
+	model := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+
+	want := []string{
+		"🍕", "  • b - Pizza", "  • d - Pasta",
+		"🏃", "  • e - Run",
+		"🚀", "  • a - Launch",
+		"• c - No emoji",
+	}
+
+	got := watchBody(model.View().Content)
+	if len(got) != len(want)+1 || !slices.Equal(got[:len(want)], want) ||
+		!strings.HasPrefix(got[len(want)], "Sun") {
+		t.Fatalf("view lines = %q, want %q then the bar", got, want)
+	}
+}
+
+func TestWatchModelGroupingWithoutEmojiMatchesFlat(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "First"},
+		"bbb": {ID: "bbb", Text: "Second"},
+	})
+
+	flat := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks"}))
+	grouped := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+
+	if flat.View().Content != grouped.View().Content {
+		t.Fatalf("grouped view = %q, want byte-identical to %q", grouped.View().Content, flat.View().Content)
+	}
+}
+
+func TestWatchModelGroupedOverflowCountsOnlyTasks(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "🍕 One"},
+		"aab": {ID: "aab", Text: "🍕 Two"},
+		"bbb": {ID: "bbb", Text: "🚀 Three"},
+		"bbc": {ID: "bbc", Text: "🚀 Four"},
+	})
+
+	model := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 4})
+
+	want := []string{"🍕", "  • aaa - One", "… +3 more"}
+	lines := watchBody(updated.(watchModel).View().Content)
+
+	if len(lines) != 4 || !slices.Equal(lines[:3], want) || !strings.HasPrefix(lines[3], "Sun") {
+		t.Fatalf("lines = %q, want %q then the bar", lines, want)
+	}
+}
+
+func TestWatchModelGroupedHeightBudgetDropsDanglingHeading(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "🍕 One"},
+		"bbb": {ID: "bbb", Text: "🚀 Two"},
+		"ccc": {ID: "ccc", Text: "🚀 Three"},
+	})
+
+	model := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 40, Height: 5})
+
+	want := []string{"🍕", "  • a - One", "… +2 more"}
+	lines := watchBody(updated.(watchModel).View().Content)
+
+	if len(lines) != 5 || !slices.Equal(lines[:3], want) ||
+		strings.TrimSpace(lines[3]) != "" || !strings.HasPrefix(lines[4], "Sun") {
+		t.Fatalf("lines = %q, want %q, a blank row, then the bar", lines, want)
+	}
+}
+
+func TestWatchModelGroupedErrorDisplacesHeadingBudget(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{
+		"aaa": {ID: "aaa", Text: "🍕 One"},
+		"aab": {ID: "aab", Text: "🍕 Two"},
+	})
+
+	model := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+	updated, _ := model.Update(watchLoadResult{err: errors.New("refresh failed")})
+	updated, _ = updated.(watchModel).Update(tea.WindowSizeMsg{Width: 40, Height: 3})
+
+	want := []string{"error: refresh failed", "… +2 more"}
+	lines := watchBody(updated.(watchModel).View().Content)
+
+	if len(lines) != 3 || !slices.Equal(lines[:2], want) || !strings.HasPrefix(lines[2], "Sun") {
+		t.Fatalf("lines = %q, want the error, the marker, then the bar", lines)
+	}
+}
+
+func TestWatchModelTruncatesGroupHeadingToWidth(t *testing.T) {
+	dir := writeWatchTasks(t, map[string]Task{"aaa": {ID: "aaa", Text: "🍕🍕🍕 Pizza"}})
+
+	model := loadWatch(t, newTestWatchModel(t, watchConfig{taskDir: dir, listName: "tasks", group: true}))
+	updated, _ := model.Update(tea.WindowSizeMsg{Width: 4, Height: 4})
+
+	lines := watchBody(updated.(watchModel).View().Content)
+	for i, line := range lines {
+		if got := lipgloss.Width(line); got > 4 {
+			t.Fatalf("line %d is %d cells wide: %q", i, got, line)
+		}
+	}
+
+	if !strings.Contains(lines[0], "…") {
+		t.Fatalf("heading line = %q, want an ellipsis", lines[0])
 	}
 }
