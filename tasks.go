@@ -60,9 +60,7 @@ var emojiRanges = []runeRange{
 	{0x2600, 0x27BF},   // miscellaneous symbols and dingbats
 	{0x2B00, 0x2BFF},   // miscellaneous symbols and arrows
 	{0x231A, 0x231B},   // watch, hourglass
-	{0x23E9, 0x23FA},   // media controls
-	{0x23F0, 0x23F0},   // alarm clock
-	{0x23F3, 0x23F3},   // hourglass with flowing sand
+	{0x23E9, 0x23FA},   // media controls, alarm clock, hourglass
 }
 
 // isEmojiCluster reports whether a grapheme cluster can start an emoji group. ASCII
@@ -247,8 +245,10 @@ func prefixes(ids []string) map[string]string {
 	return result
 }
 
-// taskRow is one display row: an optional label (shortest unique id prefix, full id when
-// verbose, empty when quiet) and the task text.
+// taskRow is one display row. Label is the optional id label (shortest unique id prefix,
+// full id when verbose, empty when quiet). Group is the leading emoji run when grouping
+// is on, empty otherwise. Text is the display text, with the emoji run and one space
+// removed when grouped; an emoji-only task keeps its full text.
 type taskRow struct {
 	Label string
 	Group string
