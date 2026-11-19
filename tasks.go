@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/rivo/uniseg"
 )
 
 // ErrAmbiguousPrefix is returned when a prefix matches more than one task.
@@ -44,6 +47,77 @@ func hashText(text string) string {
 	h.Write([]byte(text))
 
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+type runeRange struct{ lo, hi rune }
+
+const variationSelector16 rune = 0xFE0F
+
+// emojiRanges covers the blocks whose default presentation is emoji. U+FE0F is handled
+// separately so text-presentation symbols such as ❤️ and ©️ still count.
+var emojiRanges = []runeRange{
+	{0x1F000, 0x1FAFF}, // pictographs, emoticons, transport, flags
+	{0x2600, 0x27BF},   // miscellaneous symbols and dingbats
+	{0x2B00, 0x2BFF},   // miscellaneous symbols and arrows
+	{0x231A, 0x231B},   // watch, hourglass
+	{0x23E9, 0x23FA},   // media controls
+	{0x23F0, 0x23F0},   // alarm clock
+	{0x23F3, 0x23F3},   // hourglass with flowing sand
+}
+
+// isEmojiCluster reports whether a grapheme cluster can start an emoji group. ASCII
+// first runes are rejected so a space or keycap ends the run.
+func isEmojiCluster(cluster string) bool {
+	first, _ := utf8.DecodeRuneInString(cluster)
+	if first < utf8.RuneSelf {
+		return false
+	}
+
+	for _, r := range cluster {
+		if r == variationSelector16 {
+			return true
+		}
+
+		for _, rg := range emojiRanges {
+			if r >= rg.lo && r <= rg.hi {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// splitEmojiGroup splits text into its leading run of emoji clusters and the display
+// text that follows. One space after the run is removed; a task that is only emoji
+// keeps its full text so the row is never blank.
+func splitEmojiGroup(text string) (string, string) {
+	rest := text
+	state := -1
+
+	var key strings.Builder
+
+	for rest != "" {
+		cluster, next, _, nextState := uniseg.StepString(rest, state)
+		if !isEmojiCluster(cluster) {
+			break
+		}
+
+		key.WriteString(cluster)
+
+		rest, state = next, nextState
+	}
+
+	if key.Len() == 0 {
+		return "", text
+	}
+
+	display := strings.TrimPrefix(rest, " ")
+	if display == "" {
+		display = text
+	}
+
+	return key.String(), display
 }
 
 // Task represents a single task entry.

@@ -665,3 +665,31 @@ func TestTaskRows_Empty(t *testing.T) {
 		t.Fatalf("rows = %+v width = %d, want none", rows, width)
 	}
 }
+
+func TestSplitEmojiGroup(t *testing.T) {
+	tests := []struct{ name, text, key, rest string }{
+		{"no emoji", "Buy milk", "", "Buy milk"},
+		{"one emoji", "🍕 Order pizza", "🍕", "Order pizza"},
+		{"adjacent emoji", "🍕🚀 Pizza launch", "🍕🚀", "Pizza launch"},
+		{"space ends run", "🍕 🚀 Pizza", "🍕", "🚀 Pizza"},
+		{"ascii ends run", "🍕Pizza", "🍕", "Pizza"},
+		{"cjk ends run", "🍕寿司", "🍕", "寿司"},
+		{"zwj family", "👨‍👩‍👧 Family", "👨‍👩‍👧", "Family"},
+		{"flag", "🇺🇸 Vote", "🇺🇸", "Vote"},
+		{"skin tone", "👍🏽 Nice", "👍🏽", "Nice"},
+		{"keycap stays ungrouped", "1️⃣ First", "", "1️⃣ First"},
+		{"emoji only", "🍕", "🍕", "🍕"},
+		{"emoji and space only", "🍕 ", "🍕", "🍕 "},
+		{"variation selector", "©️ Legal", "©️", "Legal"},
+		{"latin letter", "éclair", "", "éclair"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, rest := splitEmojiGroup(tt.text)
+			if key != tt.key || rest != tt.rest {
+				t.Fatalf("splitEmojiGroup(%q) = (%q, %q), want (%q, %q)", tt.text, key, rest, tt.key, tt.rest)
+			}
+		})
+	}
+}
