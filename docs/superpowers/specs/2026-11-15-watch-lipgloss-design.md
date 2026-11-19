@@ -5,6 +5,8 @@
 **Supersedes in part:** `2026-09-20-watch-command-design.md` (its "no styling", "no extra UI
 dependency", and "no width handling" positions are replaced by this document; everything else
 in that spec still holds).
+**Amended by:** `2026-11-18-group-tasks-by-emoji-design.md` (the list/watch parity anti-goal
+applies only while grouping is off; grouped output adds headings and indentation).
 
 ## Intent
 
