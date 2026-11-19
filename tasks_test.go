@@ -362,7 +362,7 @@ func TestList_PrintsTasksToStdout(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, false, "")
+	tl.List(&buf, "tasks", false, false, false, "")
 	output := buf.String()
 
 	if !strings.Contains(output, "First task") {
@@ -381,7 +381,7 @@ func TestList_Grep(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, false, "groceries")
+	tl.List(&buf, "tasks", false, false, false, "groceries")
 	output := buf.String()
 
 	if !strings.Contains(output, "Buy groceries") {
@@ -399,7 +399,7 @@ func TestList_Quiet(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "tasks", false, true, "")
+	tl.List(&buf, "tasks", false, true, false, "")
 	output := buf.String()
 
 	if strings.Contains(output, " - ") {
@@ -418,7 +418,7 @@ func TestList_Done(t *testing.T) {
 
 	var buf strings.Builder
 
-	tl.List(&buf, "done", false, false, "")
+	tl.List(&buf, "done", false, false, false, "")
 	output := buf.String()
 
 	if strings.Contains(output, "Open task") {
@@ -471,12 +471,101 @@ func TestList_ExactOutput(t *testing.T) {
 
 			var buf strings.Builder
 
-			tl.List(&buf, tt.kind, tt.verb, tt.quiet, tt.grep)
+			tl.List(&buf, tt.kind, tt.verb, tt.quiet, false, tt.grep)
 
 			if got := buf.String(); got != tt.want {
 				t.Fatalf("List output = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestList_GroupedExactOutput(t *testing.T) {
+	tasks := map[string]Task{
+		"a1": {ID: "a1", Text: "🚀 Launch"},
+		"b2": {ID: "b2", Text: "🍕 Pizza"},
+		"c3": {ID: "c3", Text: "No emoji"},
+		"d4": {ID: "d4", Text: "🍕 Pasta"},
+		"e5": {ID: "e5", Text: "🏃 Run"},
+	}
+
+	tests := []struct {
+		name  string
+		quiet bool
+		grep  string
+		want  string
+	}{
+		{
+			name: "grouped",
+			want: "🍕\n  b - Pizza\n  d - Pasta\n\n🏃\n  e - Run\n\n🚀\n  a - Launch\n\nc - No emoji\n",
+		},
+		{
+			name:  "quiet",
+			quiet: true,
+			want:  "🍕\n  Pizza\n  Pasta\n\n🏃\n  Run\n\n🚀\n  Launch\n\nNo emoji\n",
+		},
+		{
+			name: "grep on emoji",
+			grep: "🍕",
+			want: "🍕\n  b - Pizza\n  d - Pasta\n",
+		},
+		{
+			name: "grep inside group",
+			grep: "pasta",
+			want: "🍕\n  d - Pasta\n",
+		},
+		{
+			name: "grep matches nothing",
+			grep: "nope",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tl := &TaskList{Tasks: tasks, Done: map[string]Task{}, Name: "tasks", TaskDir: t.TempDir()}
+
+			var buf strings.Builder
+
+			tl.List(&buf, "tasks", false, tt.quiet, true, tt.grep)
+
+			if got := buf.String(); got != tt.want {
+				t.Fatalf("List output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestList_GroupedWithoutEmojiMatchesUngrouped(t *testing.T) {
+	tl := newTestTaskList()
+	tl.Tasks["aaa"] = Task{ID: "aaa", Text: "First"}
+	tl.Tasks["bbb"] = Task{ID: "bbb", Text: "Second"}
+
+	var flat, grouped strings.Builder
+
+	tl.List(&flat, "tasks", false, false, false, "")
+	tl.List(&grouped, "tasks", false, false, true, "")
+
+	if flat.String() != grouped.String() {
+		t.Fatalf("grouped output = %q, want byte-identical to %q", grouped.String(), flat.String())
+	}
+}
+
+func TestList_GroupedVerboseAndDone(t *testing.T) {
+	longID := "0123456789abcdef0123456789abcdef01234567"
+	tl := &TaskList{
+		Tasks:   map[string]Task{},
+		Done:    map[string]Task{longID: {ID: longID, Text: "🍕 Done task"}},
+		Name:    "tasks",
+		TaskDir: t.TempDir(),
+	}
+
+	var buf strings.Builder
+
+	tl.List(&buf, "done", true, false, true, "")
+
+	if want := "🍕\n  " + longID + " - Done task\n"; buf.String() != want {
+		t.Fatalf("List output = %q, want %q", buf.String(), want)
 	}
 }
 

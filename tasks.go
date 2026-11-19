@@ -500,7 +500,7 @@ func taskRows(tasks map[string]Task, verbose, quiet, group bool, grep string) ([
 // List prints the task list to w.
 // kind is "tasks" for open tasks or "done" for finished tasks.
 // verbose shows full IDs; quiet suppresses the ID prefix; grep filters by substring (case-insensitive).
-func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet bool, grep string) {
+func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet, group bool, grep string) {
 	var tasks map[string]Task
 	if kind == "done" {
 		tasks = tl.Done
@@ -508,16 +508,50 @@ func (tl *TaskList) List(w io.Writer, kind string, verbose, quiet bool, grep str
 		tasks = tl.Tasks
 	}
 
-	rows, width := taskRows(tasks, verbose, quiet, false, grep)
-	for _, row := range rows {
-		if width == 0 {
-			fmt.Fprintln(w, row.Text)
+	rows, width := taskRows(tasks, verbose, quiet, group, grep)
 
-			continue
+	if !group {
+		for _, row := range rows {
+			writeTaskRow(w, row, width, false)
 		}
 
-		fmt.Fprintf(w, "%-*s - %s\n", width, row.Label, row.Text)
+		return
 	}
+
+	current := ""
+
+	for i, row := range rows {
+		if i == 0 || row.Group != current {
+			if i > 0 {
+				fmt.Fprintln(w)
+			}
+
+			if row.Group != "" {
+				fmt.Fprintln(w, row.Group)
+			}
+
+			current = row.Group
+		}
+
+		writeTaskRow(w, row, width, row.Group != "")
+	}
+}
+
+// writeTaskRow writes one task row, indented under its group heading when indented is true.
+// A zero width means labels are hidden and only the text is written.
+func writeTaskRow(w io.Writer, row taskRow, width int, indented bool) {
+	indent := ""
+	if indented {
+		indent = "  "
+	}
+
+	if width == 0 {
+		fmt.Fprintln(w, indent+row.Text)
+
+		return
+	}
+
+	fmt.Fprintf(w, "%s%-*s - %s\n", indent, width, row.Label, row.Text)
 }
 
 // sortedTasks returns a slice of tasks from source, sorted by ID.

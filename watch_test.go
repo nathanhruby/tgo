@@ -454,7 +454,7 @@ func renderTaskList(t *testing.T, config watchConfig) string {
 	}
 
 	var rendered strings.Builder
-	tl.List(&rendered, "tasks", config.verbose, config.quiet, config.grep)
+	tl.List(&rendered, "tasks", config.verbose, config.quiet, false, config.grep)
 
 	return rendered.String()
 }

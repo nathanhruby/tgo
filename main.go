@@ -93,7 +93,7 @@ func listAction(_ context.Context, cmd *cli.Command) error {
 		return handleTaskError(err)
 	}
 
-	tl.List(os.Stdout, "tasks", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.String("grep"))
+	tl.List(os.Stdout, "tasks", cmd.Bool("verbose"), cmd.Bool("quiet"), false, cmd.String("grep"))
 
 	return nil
 }
@@ -104,7 +104,7 @@ func doneAction(_ context.Context, cmd *cli.Command) error {
 		return handleTaskError(err)
 	}
 
-	tl.List(os.Stdout, "done", cmd.Bool("verbose"), cmd.Bool("quiet"), cmd.String("grep"))
+	tl.List(os.Stdout, "done", cmd.Bool("verbose"), cmd.Bool("quiet"), false, cmd.String("grep"))
 
 	return nil
 }
