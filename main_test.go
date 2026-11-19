@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // runApp runs the CLI with the given args and returns the exit error (nil on success).
@@ -69,6 +71,12 @@ func TestWatchConfigFromCommand(t *testing.T) {
 			args: []string{"--list", "work", "watch", "--quiet"},
 			want: func(dir string) watchConfig {
 				return watchConfig{taskDir: dir, listName: "work", quiet: true}
+			},
+		},
+		"group": {
+			args: []string{"watch", "--group"},
+			want: func(dir string) watchConfig {
+				return watchConfig{taskDir: dir, listName: "tasks", group: true}
 			},
 		},
 	} {
@@ -405,4 +413,49 @@ func TestCLI_CustomList(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "groceries")); os.IsNotExist(err) {
 		t.Error("expected groceries file to exist")
 	}
+}
+
+func TestCLI_GroupFlag(t *testing.T) {
+	app := buildApp()
+
+	for _, name := range []string{"list", "done", "watch"} {
+		command := findCommand(app, name)
+		if command == nil {
+			t.Fatalf("%s command is missing", name)
+		}
+
+		group := findFlag(command.Flags, "group")
+		if group == nil {
+			t.Fatalf("%s command is missing the group flag", name)
+		}
+
+		if !slices.Contains(group.Names(), "G") {
+			t.Fatalf("%s group flag has no -G alias: %v", name, group.Names())
+		}
+
+		grep := findFlag(command.Flags, "grep")
+		if grep == nil || !slices.Contains(grep.Names(), "g") {
+			t.Fatalf("%s grep flag lost its -g alias", name)
+		}
+	}
+}
+
+func findCommand(app *cli.Command, name string) *cli.Command {
+	for _, candidate := range app.Commands {
+		if candidate.Name == name {
+			return candidate
+		}
+	}
+
+	return nil
+}
+
+func findFlag(flags []cli.Flag, name string) cli.Flag {
+	for _, flag := range flags {
+		if flag.Names()[0] == name {
+			return flag
+		}
+	}
+
+	return nil
 }
